@@ -1,11 +1,12 @@
 import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ChakraProvider, extendTheme } from '@chakra-ui/react'
+import { ChakraProvider } from '@chakra-ui/react'
 import App from './App.tsx'
+import theme from './theme'
+import '@fontsource/roboto-mono/400.css'
+import '@fontsource/roboto-mono/500.css'
+import '@fontsource/roboto-mono/700.css'
 import './index.css'
-
-// Define a basic theme (even if just default, it ensures the theme object is correctly structured)
-const theme = extendTheme({})
 
 const rootElement = document.getElementById('root')
 
