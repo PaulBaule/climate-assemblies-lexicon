@@ -23,14 +23,24 @@ interface Definition {
   typeCategory: CardOptionValue;
   keyAttributes: CardOptionValue;
   impactPurpose: CardOptionValue;
-  term?: string; // Added term to Definition type
+  termId?: string; // ADDED: Store the language-neutral ID
+  termLanguage?: 'en' | 'de'; // ADDED: Store the language of the term saved
+  termText?: string; // REPLACED term with termText for clarity
   createdAt?: any; // For Firestore serverTimestamp
   likes?: number; // Added for popular sorting
 }
 
 interface TermData {
+  id: string; // Language-neutral identifier
+  en: LanguageSpecificTermData;
+  de: LanguageSpecificTermData; // MODIFIED: German version can now also have phonetic
+}
+
+// MODIFIED TermData structure for multilingual support
+interface LanguageSpecificTermData {
   term: string;
-  etymology?: string; // Changed from EtymologyData to string
+  etymology?: string;
+  phonetic?: string; // Phonetic is optional, mainly for English
   defaultDefinition: {
     typeCategory: CardOptionValue;
     keyAttributes: CardOptionValue;
@@ -47,210 +57,581 @@ const defaultTextOption: CardOptionValue = { type: 'text', content: 'Loading...'
 
 const allTermsData: TermData[] = [
   {
-    term: "ASSEMBLY",
-    etymology: "The word assembly comes from Old French '''assemblee''' (\'gathering\'), ultimately from Latin '''assimulare''' (\'to gather together\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Collection of people, representative group of citizens', id: 'default-assembly-type' },
-      keyAttributes: { type: 'text', content: 'Gathered together for a common purpose', id: 'default-assembly-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-assembly-impact' }
-    }
-  },
-  {
-    term: "ASSEMBLY MEMBERS",
-    etymology: "Assembly members combines 'assembly' (from Latin '''assimulare''', 'to gather') with 'member' (from Latin '''membrum''', 'part of a group').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Participants of a citizens\' assembly', id: 'default-assemblymembers-type' },
-      keyAttributes: { type: 'text', content: 'Randomly selected members of the public representative of a population of the subject area', id: 'default-assemblymembers-attributes' },
-      impactPurpose: { type: 'text', content: 'Legitimise the decision making process', id: 'default-assemblymembers-impact' }
-    }
-  },
-  {
-    term: "CITIZEN JURIES",
-    etymology: "Citizen juries combines 'citizen' (from Latin '''civis''', 'citizen') with 'jury' (from Latin '''iurare''', 'to swear', referring to a sworn body).",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Deliberative Mini-Public', id: 'default-citizenjuries-type' },
-      keyAttributes: { type: 'text', content: 'Typically comprise 10 to 35 randomly selected citizens to learn about, deliberate on and make decisions about a topic', id: 'default-citizenjuries-attributes' },
-      impactPurpose: { type: 'text', content: 'Legitimise and provide knowledge for policy making', id: 'default-citizenjuries-impact' }
-    }
-  },
-  {
-    term: "CITIZENS",
-    etymology: "The word citizen comes from Anglo-French '''citezein''' (\'city-dweller\'), ultimately from Latin '''civis''' (\'citizen\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Members of the public', id: 'default-citizens-type' },
-      keyAttributes: { type: 'text', content: 'Live within a subject area', id: 'default-citizens-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-citizens-impact' }
-    }
-  },
-  {
-    term: "CLIMATE ASSEMBLY",
-    etymology: "Climate assembly combines 'climate' (from Greek '''klima''', 'region' or 'zone') with 'assembly' (from Latin '''assimulare''', 'to gather together').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Deliberative Mini-Public', id: 'default-climateassembly-type' },
-      keyAttributes: { type: 'text', content: 'Typically comprise 50 to 150 randomly selected citizens to learn about, deliberate on and make decisions about a topic', id: 'default-climateassembly-attributes' },
-      impactPurpose: { type: 'text', content: 'Legitimise and provide knowledge for policy making', id: 'default-climateassembly-impact' }
-    }
-  },
-  {
-    term: "DELIBERATION",
-    etymology: "The word deliberation comes from Latin '''deliberare''' (\'to weigh well\'), from '''de-''' (\'entirely\') and '''librare''' (\'to balance,\' from '''libra''', \'scales\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'An approach to decision making', id: 'default-deliberation-type' },
-      keyAttributes: { type: 'text', content: 'Participants justify what they want with reasons and listen to each other\'s justifications respectfully and with an open mind', id: 'default-deliberation-attributes' },
-      impactPurpose: { type: 'text', content: 'Enable inclusive and reasoned decision making that respects and includes a variety of voices and perspectives to be heard', id: 'default-deliberation-impact' }
-    }
-  },
-  {
-    term: "DELIBERATIVE MINI-PUBLICS",
-    etymology: "Combines 'deliberative' (Latin '''deliberare''', 'to weigh well'), 'mini' (from Latin '''minium''', associated with smallness), and 'publics' (Latin '''publicus''', 'of the people').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Democratic innovation', id: 'default-deliberativeminipublics-type' },
-      keyAttributes: { type: 'text', content: 'Involves randomly selected citizens to learn about, deliberate on and make decisions about a topic', id: 'default-deliberativeminipublics-attributes' },
-      impactPurpose: { type: 'text', content: 'Legitimise and provide knowledge for policy making', id: 'default-deliberativeminipublics-impact' }
-    }
-  },
-  {
-    term: "DEMOCRACY",
-    etymology: "The word democracy comes from the Greek demokratia, meaning 'rule by the people', from demos ('people') and kratos ('power').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'System of governance', id: 'default-democracy-type' },
-      keyAttributes: { type: 'text', content: 'Enables some degree of public engagement. There are different models of democracy, ranging from engaging citizens in elections of representative politicians to deeper participatory and deliberative models ( e.g. participatory budgeting and deliberative mini-publics)', id: 'default-democracy-attributes' },
-      impactPurpose: { type: 'text', content: 'Improve and legitimise decision making', id: 'default-democracy-impact' }
-    }
-  },
-  {
-    term: "EVIDENCE",
-    etymology: "The word evidence comes from Latin '''evidens''' (\'obvious, apparent\'), from '''ex-''' (\'out, fully\') and '''videre''' (\'to see\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Information presented in a deliberation', id: 'default-evidence-type' },
-      keyAttributes: { type: 'text', content: 'Information that supports or challenges a claim based on facts, observations, expert opinions or personal experience ', id: 'default-evidence-attributes' },
-      impactPurpose: { type: 'text', content: 'Enable informed deliberation and decision making', id: 'default-evidence-impact' }
-    }
-  },
-  {
-    term: "EXPERTS",
-    etymology: "The word expert comes from Latin '''experiri''' (\'to try, test\'), meaning one who is \'known by experience\'.",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Individuals with specialized knowledge or skills', id: 'default-experts-type' },
-      keyAttributes: { type: 'text', content: 'Possess in-depth understanding, proficiency, or authority in a particular subject, field, or domain, often gained through extensive study, training, or practical experience', id: 'default-experts-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-experts-impact' }
+    id: "ASSEMBLY",
+    en: {
+      term: "ASSEMBLY",
+      etymology: "The word assembly comes from Old French '''assemblee''' ('gathering'), ultimately from Latin '''assimulare''' ('to gather together').",
+      phonetic: "[əˈsɛmbli]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: 'Collection of people, representative group of citizens', id: 'default-assembly-type-en' },
+        keyAttributes: { type: 'text', content: 'Gathered together for a common purpose', id: 'default-assembly-attributes-en' },
+        impactPurpose: { type: 'text', content: 'Deliberate, make recommendations and support policy development', id: 'default-assembly-impact-en' }
+      }
     },
-  },
-  {
-    term: "GOVERNING BODY",
-    etymology: "Governing body combines 'governing' (from Latin '''gubernare''', 'to rule') with 'body' (from Old English '''bodig''', 'a collective group').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Organisation or people that make decisions about the design and implementation of a deliberative mini-public', id: 'default-governancegoverningbody-type' },
-      keyAttributes: { type: 'text', content: 'Typically have expertise in the topic or participatory and deliberative methods', id: 'default-governancegoverningbody-attributes' },
-      impactPurpose: { type: 'text', content: 'Ensure the design and implementation of the process adheres to best practice and fulfils the remit set by the commissioning organisation', id: 'default-governancegoverningbody-impact' }
+    de: {
+      term: "VERSAMMLUNG",
+      etymology: "Das Wort Versammlung kommt vom Althochdeutschen...",
+      phonetic: "de: [əˈsɛmbli]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: 'GERMAN: Collection of people, representative group of citizens', id: 'default-assembly-type-de' },
+        keyAttributes: { type: 'text', content: 'GERMAN: Gathered together for a common purpose', id: 'default-assembly-attributes-de' },
+        impactPurpose: { type: 'text', content: 'GERMAN: Deliberate, make recommendations and support policy development', id: 'default-assembly-impact-de' }
+      }
     }
   },
   {
-    term: "PARTICIPATION",
-    etymology: "The word participation comes from Latin '''participare''' (\'to share in, partake of\'), from '''pars''' (\'part\') and '''capere''' (\'to take\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'An approach to governance', id: 'default-participation-type' },
-      keyAttributes: { type: 'text', content: 'Enables citizens to individually or collectively contribute to decision making', id: 'default-participation-attributes' },
-      impactPurpose: { type: 'text', content: 'Improve and legitimise decision making', id: 'default-participation-impact' }
-    }
-  },
-  {
-    term: "POLICY",
-    etymology: "The word policy comes from Greek '''politeia''' (\'state, administration\'), via Latin '''politia''' and Old French '''policie'''.",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Tool of governence', id: 'default-policy-type' },
-      keyAttributes: { type: 'text', content: 'Sets out the strategic direction of the governing body', id: 'default-policy-attributes' },
-      impactPurpose: { type: 'text', content: 'Communicate vision and guide action', id: 'default-policy-impact' }
-    }
-  },
-  {
-    term: "POLITICS",
-    etymology: "The word politics derives from Greek '''politikos''' (\'of citizens, of the state\'), from '''polis''' (\'city\'), influenced by Aristotle\'s '''ta politika'''.",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Activities associated with group decisions', id: 'default-politics-type' },
-      keyAttributes: { type: 'text', content: 'Involves the process of making decisions that apply to members of a group, including the distribution of resources or status and the exercise of power', id: 'default-politics-attributes' },
-      impactPurpose: { type: 'text', content: 'Prioritise competing interests and enable decisions to be made', id: 'default-politics-impact' }
-    }
-  },
-  {
-    term: "POST ASSEMBLY",
-    etymology: "Post assembly combines 'post-' (Latin *post*, 'after') with 'assembly' (Latin *assimulare*, 'to gather together'), meaning 'after the gathering'.",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Stage / phase of a citizens\' assembly process', id: 'default-postassembly-type' },
-      keyAttributes: { type: 'text', content: 'Translation of outputs into policy and action', id: 'default-postassembly-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-postassembly-impact' }
-    }
-  },
-  {
-    term: "RECOMMENDATIONS",
-    etymology: "The word recommendation derives from Latin *recommendare* ('to commend, entrust'), from *re-* ('again' or intensive) and *commendare* ('to entrust').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Output from a deliberative mini-public', id: 'default-recommendations-type' },
-      keyAttributes: { type: 'text', content: 'Summarise the key decisions made by the assembly members', id: 'default-recommendations-attributes' },
-      impactPurpose: { type: 'text', content: 'Inform policy makers of an assembly\'s decisions and proposals for policy implementation', id: 'default-recommendations-impact' }
-    }
-  },
-  {
-    term: "SORTITION",
-    etymology: "The word sortition comes from Latin *sortiri* ('to draw lots'), from *sors* ('lot, share, or portion').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Recruitment strategy', id: 'default-sortition-type' },
-      keyAttributes: { type: 'text', content: 'Uses random stratified sampling to identify and select a representative sample of the population', id: 'default-sortition-attributes' },
-      impactPurpose: { type: 'text', content: 'Ensure the assembly members represent the population in terms of key demographics', id: 'default-sortition-impact' }
-    }
-  },
-  {
-    term: "FACILITATION",
-    etymology: "The word facilitation derives from Latin '''facilis''' (\'easy to do\'), which comes from '''facere''' (\'to do or make\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Guidance of group processes', id: 'default-facilitation-type' },
-      keyAttributes: { type: 'text', content: 'Helping a group to have effective discussions, make decisions, and achieve its goals through structured activities and neutral guidance', id: 'default-facilitation-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-facilitation-impact' }
-    }
-  },
-  {
-    term: "IMPACT",
-    etymology: "The word impact comes from Latin '''impingere''' (\'to push into, strike against\'), from '''in-''' (\'into\') and '''pangere''' (\'to fasten, fix\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Effect or influence of an action or decision', id: 'default-impact-type' },
-      keyAttributes: { type: 'text', content: 'The measurable or observable consequences resulting from policies, programs, or interventions, often assessed in terms of social, economic, or environmental changes', id: 'default-impact-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-impact-impact' }
+    id: "ASSEMBLY_MEMBERS",
+    en: {
+      term: "ASSEMBLY MEMBERS",
+      etymology: "Assembly members combines 'assembly' (from Latin '''assimulare''', 'to gather') with 'member' (from Latin '''membrum''', 'part of a group').",
+      phonetic: "[əˈsɛmbli ˈmɛmbəz]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Participants of a citizens' assembly", id: 'default-assemblymembers-type-en' },
+        keyAttributes: { type: 'text', content: "Randomly selected members of the public representation of a population of the subject area", id: 'default-assemblymembers-attributes-en' },
+        impactPurpose: { type: 'text', content: "Legitimise the decision making process", id: 'default-assemblymembers-impact-en' }
+      }
     },
-  },
-  {
-    term: "IMPLEMENTATION",
-    etymology: "The word implementation derives from Latin '''implere''' (\'to fill up, fulfill\'), via '''implementum''' (\'a filling up\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Process of putting decisions and plans into effect', id: 'default-implementation-type' },
-      keyAttributes: { type: 'text', content: 'Involves the practical steps taken to execute policies, programs, or projects, including resource allocation, coordination, and monitoring to achieve desired outcomes', id: 'default-implementation-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-implementation-impact' }
-    },
-  },
-  {
-    term: "INCLUSION",
-    etymology: "The word inclusion comes from Latin '''includere''' (\'to shut in, enclose\'), from '''in-''' (\'in\') and '''claudere''' (\'to shut\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Ensuring diverse participation and belonging', id: 'default-inclusion-type' },
-      keyAttributes: { type: 'text', content: 'Actively involving individuals from all backgrounds, identities, and perspectives, creating an environment where everyone feels valued, respected, and able to contribute fully', id: 'default-inclusion-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-inclusion-impact' }
+    de: {
+      term: "VERSAMMLUNGSMITGLIEDER",
+      etymology: "GERMAN ETYMOLOGY FOR ASSEMBLY MEMBERS",
+      phonetic: "de: [əˈsɛmbli ˈmɛmbəz]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Participants of a citizens' assembly", id: 'default-assemblymembers-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Randomly selected members of the public representation of a population of the subject area", id: 'default-assemblymembers-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Legitimise the decision making process", id: 'default-assemblymembers-impact-de' }
+      }
     }
   },
   {
-    term: "INFORMATION",
-    etymology: "The word information comes from Latin '''informare''' (\'to shape, give form to; to train, instruct\').",
-    defaultDefinition: {
-      typeCategory: { type: 'text', content: 'Knowledge, facts, or data', id: 'default-information-type' },
-      keyAttributes: { type: 'text', content: 'Communicated or received concerning a particular subject, typically gathered, processed, and used to understand, decide, or act', id: 'default-information-attributes' },
-      impactPurpose: { type: 'text', content: 'Not specified.', id: 'default-information-impact' }
+    id: "CITIZEN_JURIES",
+    en: {
+      term: "CITIZEN JURIES",
+      etymology: "Citizen juries combines 'citizen' (from Latin 'civis', 'citizen') with 'jury' (from Latin 'iurare', 'to swear', referring to a sworn body).",
+      phonetic: "[ˈsɪtɪzn̩ ˈdʒʊəriz]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Deliberative Mini-Public", id: 'default-citizenjuries-type-en' },
+        keyAttributes: { type: 'text', content: "Typically comprise 10 to 35 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-citizenjuries-attributes-en' },
+        impactPurpose: { type: 'text', content: "Legitimise and provide knowledge for policy making", id: 'default-citizenjuries-impact-en' }
+      }
     },
+    de: {
+      term: "BÜRGERGUTACHTEN",
+      etymology: "GERMAN ETYMOLOGY FOR CITIZEN JURIES",
+      phonetic: "de: [ˈsɪtɪzn̩ ˈdʒʊəriz]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Deliberative Mini-Public", id: 'default-citizenjuries-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Typically comprise 10 to 35 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-citizenjuries-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Legitimise and provide knowledge for policy making", id: 'default-citizenjuries-impact-de' }
+      }
+    }
   },
+  {
+    id: "CITIZENS",
+    en: {
+      term: "CITIZENS",
+      etymology: "The word citizen comes from Anglo-French 'citezein' ('city-dweller'), ultimately from Latin 'civis' ('citizen').",
+      phonetic: "[ˈsɪtɪzn̩z]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Members of the public; legally recognised members of a nation or political community", id: 'default-citizens-type-en' },
+        keyAttributes: { type: 'text', content: "Are participatory members of a political community and are granted certain rights and privileges", id: 'default-citizens-attributes-en' },
+        impactPurpose: { type: 'text', content: "Live in accordance with the laws and obligations of citizenship", id: 'default-citizens-impact-en' }
+      }
+    },
+    de: {
+      term: "BÜRGER",
+      etymology: "GERMAN ETYMOLOGY FOR CITIZENS",
+      phonetic: "de: [ˈsɪtɪzn̩z]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Members of the public; legally recognised members of a nation or political community", id: 'default-citizens-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Are participatory members of a political community and are granted certain rights and privileges", id: 'default-citizens-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Live in accordance with the laws and obligations of citizenship", id: 'default-citizens-impact-de' }
+      }
+    }
+  },
+  {
+    id: "CLIMATE_ASSEMBLY",
+    en: {
+      term: "CLIMATE ASSEMBLY",
+      etymology: "Climate assembly combines 'climate' (from Greek 'klima', 'region' or 'zone') with 'assembly' (from Latin 'assimulare', 'to gather together').",
+      phonetic: "[ˈklaɪmət əˈsɛmbli]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Deliberative Mini-Public", id: 'default-climateassembly-type-en' },
+        keyAttributes: { type: 'text', content: "Typically comprise 50 to 150 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-climateassembly-attributes-en' },
+        impactPurpose: { type: 'text', content: "Legitimise and provide knowledge for policy making", id: 'default-climateassembly-impact-en' }
+      }
+    },
+    de: {
+      term: "KLIMAVERSAMMLUNG",
+      etymology: "GERMAN ETYMOLOGY FOR CLIMATE ASSEMBLY",
+      phonetic: "de: [ˈklaɪmət əˈsɛmbli]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Deliberative Mini-Public", id: 'default-climateassembly-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Typically comprise 50 to 150 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-climateassembly-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Legitimise and provide knowledge for policy making", id: 'default-climateassembly-impact-de' }
+      }
+    }
+  },
+  {
+    id: "DECISION_MAKING",
+    en: {
+      term: "DECISION-MAKING",
+      etymology: "Combines 'decision' (from Latin 'decidere', 'to cut off, determine') and 'making' (from Old English 'macian', 'to make, form').",
+      phonetic: "[dɪˈsɪʒənˌmeɪkɪŋ]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Process of making choices and selecting course of action", id: 'default-decisionmaking-type-en' },
+        keyAttributes: { type: 'text', content: "Develop methods and procedures through which governments make policies, laws and regulations", id: 'default-decisionmaking-attributes-en' },
+        impactPurpose: { type: 'text', content: "Maintain balance between power and the population's interests", id: 'default-decisionmaking-impact-en' }
+      }
+    },
+    de: {
+      term: "ENTSCHEIDUNGSFINDUNG",
+      etymology: "GERMAN ETYMOLOGY FOR DECISION-MAKING",
+      phonetic: "de: [dɪˈsɪʒənˌmeɪkɪŋ]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Process of making choices and selecting course of action", id: 'default-decisionmaking-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Develop methods and procedures through which governments make policies, laws and regulations", id: 'default-decisionmaking-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Maintain balance between power and the population's interests", id: 'default-decisionmaking-impact-de' }
+      }
+    }
+  },
+  {
+    id: "DELIBERATION",
+    en: {
+      term: "DELIBERATION",
+      etymology: "The word deliberation comes from Latin 'deliberare' ('to weigh well'), from 'de-' ('entirely') and 'librare' ('to balance,' from 'libra', 'scales').",
+      phonetic: "[dɪˌlɪbəˈreɪʃən]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "An approach to decision making", id: 'default-deliberation-type-en' },
+        keyAttributes: { type: 'text', content: "Participants justify what they want with reasons and listen to each other's justifications respectfully and with an open mind", id: 'default-deliberation-attributes-en' },
+        impactPurpose: { type: 'text', content: "Enable inclusive and reasoned decision making that respects and includes a variety of voices and perspectives to be heard", id: 'default-deliberation-impact-en' }
+      }
+    },
+    de: {
+      term: "BERATUNG",
+      etymology: "GERMAN ETYMOLOGY FOR DELIBERATION",
+      phonetic: "de: [dɪˌlɪbəˈreɪʃən]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: An approach to decision making", id: 'default-deliberation-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Participants justify what they want with reasons and listen to each other's justifications respectfully and with an open mind", id: 'default-deliberation-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Enable inclusive and reasoned decision making that respects and includes a variety of voices and perspectives to be heard", id: 'default-deliberation-impact-de' }
+      }
+    }
+  },
+  {
+    id: "DELIBERATIVE_MINI_PUBLICS",
+    en: {
+      term: "DELIBERATIVE MINI-PUBLICS",
+      etymology: "Combines 'deliberative' (Latin 'deliberare', 'to weigh well'), 'mini' (from Latin 'minium', associated with smallness), and 'publics' (Latin 'publicus', 'of the people').",
+      phonetic: "[dɪˈlɪbərətɪv ˈmɪni ˈpʌblɪks]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Democratic innovation", id: 'default-deliberativeminipublics-type-en' },
+        keyAttributes: { type: 'text', content: "Process involving randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-deliberativeminipublics-attributes-en' },
+        impactPurpose: { type: 'text', content: "Legitimise and provide knowledge for policy making", id: 'default-deliberativeminipublics-impact-en' }
+      }
+    },
+    de: {
+      term: "BERATENDE MINI-PUBLICS",
+      etymology: "GERMAN ETYMOLOGY FOR DELIBERATIVE MINI-PUBLICS",
+      phonetic: "de: [dɪˈlɪbərətɪv ˈmɪni ˈpʌblɪks]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Democratic innovation", id: 'default-deliberativeminipublics-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Process involving randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-deliberativeminipublics-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Legitimise and provide knowledge for policy making", id: 'default-deliberativeminipublics-impact-de' }
+      }
+    }
+  },
+  {
+    id: "DEMOCRACY",
+    en: {
+      term: "DEMOCRACY",
+      etymology: "The word democracy comes from the Greek demokratia, meaning 'rule by the people', from demos ('people') and kratos ('power').",
+      phonetic: "[dɪˈmɒkrəsi]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "System or rule of government by all eligible members of the state", id: 'default-democracy-type-en' },
+        keyAttributes: { type: 'text', content: "Depends on the will of the people either directly or through elected representatives", id: 'default-democracy-attributes-en' },
+        impactPurpose: { type: 'text', content: "Provide an environment for effective rule by the people for the people and effective realization of human rights", id: 'default-democracy-impact-en' }
+      }
+    },
+    de: {
+      term: "DEMOKRATIE",
+      etymology: "GERMAN ETYMOLOGY FOR DEMOCRACY",
+      phonetic: "de: [dɪˈmɒkrəsi]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: System or rule of government by all eligible members of the state", id: 'default-democracy-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Depends on the will of the people either directly or through elected representatives", id: 'default-democracy-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Provide an environment for effective rule by the people for the people and effective realization of human rights", id: 'default-democracy-impact-de' }
+      }
+    }
+  },
+  {
+    id: "EVIDENCE",
+    en: {
+      term: "EVIDENCE",
+      etymology: "The word evidence comes from Latin 'evidens' ('obvious, apparent'), from 'ex-' ('out, fully') and 'videre' ('to see').",
+      phonetic: "[ˈɛvɪdəns]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Input of a deliberative mini-public", id: 'default-evidence-type-en' },
+        keyAttributes: { type: 'text', content: "Presented by expert witnesses or advocates during the learning phase of a citizens' assembly", id: 'default-evidence-attributes-en' },
+        impactPurpose: { type: 'text', content: "Enable informed deliberation and decision making", id: 'default-evidence-impact-en' }
+      }
+    },
+    de: {
+      term: "BEWEISE",
+      etymology: "GERMAN ETYMOLOGY FOR EVIDENCE",
+      phonetic: "de: [ˈɛvɪdəns]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Input of a deliberative mini-public", id: 'default-evidence-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Presented by expert witnesses or advocates during the learning phase of a citizens' assembly", id: 'default-evidence-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Enable informed deliberation and decision making", id: 'default-evidence-impact-de' }
+      }
+    }
+  },
+  {
+    id: "EXPERTS",
+    en: {
+      term: "EXPERTS",
+      etymology: "The word expert comes from Latin 'experiri' ('to try, test'), meaning one who is 'known by experience'.",
+      phonetic: "[ˈɛkspɜːts]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "People selected by the governing body to present evidence at a deliberative mini-public", id: 'default-experts-type-en' },
+        keyAttributes: { type: 'text', content: "Have expertise in a specific area of the topic; typically, experts with a range of perspectives are selected", id: 'default-experts-attributes-en' },
+        impactPurpose: { type: 'text', content: "To enable the 'learning' part of the process, where assembly member learn about the subject topic before deliberating on and making decisions about it", id: 'default-experts-impact-en' }
+      }
+    },
+    de: {
+      term: "EXPERTEN",
+      etymology: "GERMAN ETYMOLOGY FOR EXPERTS",
+      phonetic: "de: [ˈɛkspɜːts]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: People selected by the governing body to present evidence at a deliberative mini-public", id: 'default-experts-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Have expertise in a specific area of the topic; typically, experts with a range of perspectives are selected", id: 'default-experts-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: To enable the 'learning' part of the process, where assembly member learn about the subject topic before deliberating on and making decisions about it", id: 'default-experts-impact-de' }
+      }
+    }
+  },
+  {
+    id: "FACILITATORS",
+    en: {
+      term: "FACILITATORS",
+      etymology: "The word facilitation derives from Latin 'facilis' ('easy to do'), which comes from 'facere' ('to do or make').",
+      phonetic: "[fəˈsɪlɪteɪtəz]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "People with expertise in citizen deliberation", id: 'default-facilitators-type-en' },
+        keyAttributes: { type: 'text', content: "Guide the assembly process ensuring all voices are heard", id: 'default-facilitators-attributes-en' },
+        impactPurpose: { type: 'text', content: "Help citizens understand issues, discuss thoughtfully and respectfully and make informed decisions", id: 'default-facilitators-impact-en' }
+      }
+    },
+    de: {
+      term: "MODERATOREN",
+      etymology: "GERMAN ETYMOLOGY FOR FACILITATORS",
+      phonetic: "de: [fəˈsɪlɪteɪtəz]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: People with expertise in citizen deliberation", id: 'default-facilitators-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Guide the assembly process ensuring all voices are heard", id: 'default-facilitators-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Help citizens understand issues, discuss thoughtfully and respectfully and make informed decisions", id: 'default-facilitators-impact-de' }
+      }
+    }
+  },
+  {
+    id: "GOVERNING_BODY",
+    en: {
+      term: "GOVERNING BODY",
+      etymology: "Governing body combines 'governing' (from Latin 'gubernare', 'to rule') with 'body' (from Old English 'bodig', 'a collective group').",
+      phonetic: "[ˈɡʌvənɪŋ ˈbɒdi]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Organisation or people that make decisions about the design and implementation of a deliberative mini-public", id: 'default-governingbody-type-en' },
+        keyAttributes: { type: 'text', content: "Typically have expertise in the topic or participatory and deliberative methods", id: 'default-governingbody-attributes-en' },
+        impactPurpose: { type: 'text', content: "Ensure the design and implementation of the process adheres to best practice and fulfils the remit set by the commissioning organisation", id: 'default-governingbody-impact-en' }
+      }
+    },
+    de: {
+      term: "LEITUNGSGREMIUM",
+      etymology: "GERMAN ETYMOLOGY FOR GOVERNING BODY",
+      phonetic: "de: [ˈɡʌvənɪŋ ˈbɒdi]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Organisation or people that make decisions about the design and implementation of a deliberative mini-public", id: 'default-governingbody-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Typically have expertise in the topic or participatory and deliberative methods", id: 'default-governingbody-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Ensure the design and implementation of the process adheres to best practice and fulfils the remit set by the commissioning organisation", id: 'default-governingbody-impact-de' }
+      }
+    }
+  },
+  {
+    id: "PARTICIPATION",
+    en: {
+      term: "PARTICIPATION",
+      etymology: "The word participation comes from Latin 'participare' ('to share in, partake of'), from 'pars' ('part') and 'capere' ('to take').",
+      phonetic: "[pɑːˌtɪsɪˈpeɪʃən]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "An approach to governance", id: 'default-participation-type-en' },
+        keyAttributes: { type: 'text', content: "Enables citizens to individually or collectively contribute to decision making", id: 'default-participation-attributes-en' },
+        impactPurpose: { type: 'text', content: "Improve and legitimise decision making", id: 'default-participation-impact-en' }
+      }
+    },
+    de: {
+      term: "TEILNAHME",
+      etymology: "GERMAN ETYMOLOGY FOR PARTICIPATION",
+      phonetic: "de: [pɑːˌtɪsɪˈpeɪʃən]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: An approach to governance", id: 'default-participation-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Enables citizens to individually or collectively contribute to decision making", id: 'default-participation-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Improve and legitimise decision making", id: 'default-participation-impact-de' }
+      }
+    }
+  },
+  {
+    id: "POLICY",
+    en: {
+      term: "POLICY",
+      etymology: "The word policy comes from Greek 'politeia' ('state, administration'), via Latin 'politia' and Old French 'policie'.",
+      phonetic: "[ˈpɒləsi]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Tool of governance", id: 'default-policy-type-en' },
+        keyAttributes: { type: 'text', content: "Sets out the strategic direction of the governing body", id: 'default-policy-attributes-en' },
+        impactPurpose: { type: 'text', content: "Communicate vision and guide action", id: 'default-policy-impact-en' }
+      }
+    },
+    de: {
+      term: "RICHTLINIE",
+      etymology: "GERMAN ETYMOLOGY FOR POLICY",
+      phonetic: "de: [ˈpɒləsi]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Tool of governance", id: 'default-policy-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Sets out the strategic direction of the governing body", id: 'default-policy-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Communicate vision and guide action", id: 'default-policy-impact-de' }
+      }
+    }
+  },
+  {
+    id: "POLITICS",
+    en: {
+      term: "POLITICS",
+      etymology: "The word politics derives from Greek 'politikos' ('of citizens, of the state'), from 'polis' ('city'), influenced by Aristotle's 'ta politika'.",
+      phonetic: "[ˈpɒlɪtɪks]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Activities of a Government", id: 'default-politics-type-en' },
+        keyAttributes: { type: 'text', content: "depend on power relations and relationships between people", id: 'default-politics-attributes-en' },
+        impactPurpose: { type: 'text', content: "prioritise competing interests and enable decisions to be made", id: 'default-politics-impact-en' }
+      }
+    },
+    de: {
+      term: "POLITIK",
+      etymology: "IHRE DEUTSCHE ETYMOLOGIE HIER",
+      phonetic: "de: [ˈpɒlɪtɪks]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Activities of a Government", id: 'default-politics-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: depend on power relations and relationships between people", id: 'default-politics-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: prioritise competing interests and enable decisions to be made", id: 'default-politics-impact-de' }
+      }
+    }
+  },
+  {
+    id: "POST_ASSEMBLY",
+    en: {
+      term: "POST ASSEMBLY",
+      etymology: "Post assembly combines 'post-' (Latin *post*, 'after') with 'assembly' (Latin *assimulare*, 'to gather together'), meaning 'after the gathering'.",
+      phonetic: "[pəʊst əˈsɛmbli]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "Stage / phase of a citizens' assembly process", id: 'default-postassembly-type-en' },
+        keyAttributes: { type: 'text', content: "Translation of outputs into policy and action", id: 'default-postassembly-attributes-en' },
+        impactPurpose: { type: 'text', content: "Determine what happens next", id: 'default-postassembly-impact-en' }
+      }
+    },
+    de: {
+      term: "NACH DER VERSAMMLUNG",
+      etymology: "IHRE DEUTSCHE ETYMOLOGIE HIER",
+      phonetic: "de: [pəʊst əˈsɛmbli]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: "GERMAN: Stage / phase of a citizens' assembly process", id: 'default-postassembly-type-de' },
+        keyAttributes: { type: 'text', content: "GERMAN: Translation of outputs into policy and action", id: 'default-postassembly-attributes-de' },
+        impactPurpose: { type: 'text', content: "GERMAN: Determine what happens next", id: 'default-postassembly-impact-de' }
+      }
+    }
+  },
+  {
+    id: "RECOMMENDATIONS",
+    en: {
+      term: "RECOMMENDATIONS",
+      etymology: "The word recommendation derives from Latin *recommendare* ('to commend, entrust'), from *re-* ('again' or intensive) and *commendare* ('to entrust').",
+      phonetic: "[ˌrɛkəmɛnˈdeɪʃənz]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: 'Output from a deliberative mini-public', id: 'default-recommendations-type-en' },
+        keyAttributes: { type: 'text', content: 'Summarise the key decisions made by the assembly members', id: 'default-recommendations-attributes-en' },
+        impactPurpose: { type: 'text', content: 'Inform policy makers of an assembly\'s decisions and proposals for policy implementation', id: 'default-recommendations-impact-en' }
+      }
+    },
+    de: {
+      term: "EMPFEHLUNGEN",
+      etymology: "GERMAN ETYMOLOGY FOR RECOMMENDATIONS",
+      phonetic: "de: [ˌrɛkəmɛnˈdeɪʃənz]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: 'GERMAN: Output from a deliberative mini-public', id: 'default-recommendations-type-de' },
+        keyAttributes: { type: 'text', content: 'GERMAN: Summarise the key decisions made by the assembly members', id: 'default-recommendations-attributes-de' },
+        impactPurpose: { type: 'text', content: 'GERMAN: Inform policy makers of an assembly\'s decisions and proposals for policy implementation', id: 'default-recommendations-impact-de' }
+      }
+    }
+  },
+  {
+    id: "SCENARIOS",
+    en: {
+      term: "SCENARIOS",
+      etymology: "From Italian '''scenario''' ('scene, stage setting'), derived from Latin '''scaena''' ('scene, stage').",
+      phonetic: "[sɪˈnɑːrɪəʊz]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: 'Narrative imaginings of possible actions, situations or events in the future', id: 'default-scenarios-type-en' },
+        keyAttributes: { type: 'text', content: 'Create a framework for discussing complex issues and different perspectives on a topic in an assembly process', id: 'default-scenarios-attributes-en' },
+        impactPurpose: { type: 'text', content: 'Help citizens understand impacts and consequences of different actions and policies and explore alternatives', id: 'default-scenarios-impact-en' }
+      }
+    },
+    de: {
+      term: "SZENARIEN",
+      etymology: "GERMAN ETYMOLOGY FOR SCENARIOS",
+      phonetic: "de: [sɪˈnɑːrɪəʊz]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: 'GERMAN: Narrative imaginings of possible actions, situations or events in the future', id: 'default-scenarios-type-de' },
+        keyAttributes: { type: 'text', content: 'GERMAN: Create a framework for discussing complex issues and different perspectives on a topic in an assembly process', id: 'default-scenarios-attributes-de' },
+        impactPurpose: { type: 'text', content: 'GERMAN: Help citizens understand impacts and consequences of different actions and policies and explore alternatives', id: 'default-scenarios-impact-de' }
+      }
+    }
+  },
+  {
+    id: "SORTITION",
+    en: {
+      term: "SORTITION",
+      etymology: "The word sortition comes from Latin *sortiri* ('to draw lots'), from *sors* ('lot, share, or portion').",
+      phonetic: "[sɔːˈtɪʃən]",
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: 'Recruitment strategy', id: 'default-sortition-type-en' },
+        keyAttributes: { type: 'text', content: 'Uses random stratified sampling to identify and select a representative sample of the population', id: 'default-sortition-attributes-en' },
+        impactPurpose: { type: 'text', content: 'Ensure the assembly members represent the population in terms of key demographics', id: 'default-sortition-impact-en' }
+      }
+    },
+    de: {
+      term: "LOSVERFAHREN",
+      etymology: "GERMAN ETYMOLOGY FOR SORTITION",
+      phonetic: "de: [sɔːˈtɪʃən]", // ADDED German phonetic
+      defaultDefinition: {
+        typeCategory: { type: 'text', content: 'GERMAN: Recruitment strategy', id: 'default-sortition-type-de' },
+        keyAttributes: { type: 'text', content: 'GERMAN: Uses random stratified sampling to identify and select a representative sample of the population', id: 'default-sortition-attributes-de' },
+        impactPurpose: { type: 'text', content: 'GERMAN: Ensure the assembly members represent the population in terms of key demographics', id: 'default-sortition-impact-de' }
+      }
+    }
+  }
 ];
+
 
 const storage = getStorage(); // Initialize Firebase Storage
 
 // Find the initial index for "DEMOCRACY"
-const initialTermIdentifier = "DEMOCRACY";
-const initialTermIndex = Math.max(0, allTermsData.findIndex(termData => termData.term === initialTermIdentifier));
+const initialTermIdentifier = "DEMOCRACY"; // This should be the ID
+const initialTermIndex = Math.max(0, allTermsData.findIndex(termData => termData.id === initialTermIdentifier));
+
+// --- UI Translations ---
+const uiTranslations = {
+  en: {
+    helpModalTitle: "HOW TO USE THIS TOOL",
+    helpModalIntro: "This tool helps you explore and define complex terms like \"DEMOCRACY\" in the context of culture and climate change.", // Escaped inner quotes
+    helpModalStep1: "1. Use the arrow buttons beneath each of the three card decks to cycle through different card options.",
+    helpModalStep2: "2. Press the plus button beneath each of the three card decks to add new card options.",
+    helpModalStep3: "3. You can add new cards by A) writing a word or paragraph, B) drawing an picture, C) recording audio, or D) uploading an image.",
+    helpModalStep4: "4. Once you're satisfied with a combination, you can click the save button on the right to add your new definition to the list below.",
+    noEtymology: "No etymology information available for this term.",
+    remixDefinitionLabel: "Remix definition",
+    cardTitleTypeCategory: "1. TYPE / CATEGORY",
+    cardTitleKeyAttributes: "2. KEY ATTRIBUTES",
+    cardTitleImpactPurpose: "3. PURPOSE / IMPACT",
+    textThat: "THAT",
+    textTo: "TO",
+    // Card input placeholders
+    placeholderEnterNew: (category: string) => `Enter new ${category}...`,
+    placeholderDrawing: "Start drawing here",
+    placeholderImageUpload: "Select an image to upload",
+    placeholderTapToRecord: "Tap to record",
+    statusRecording: "Recording...",
+    statusCompressing: (progress: number) => `Compressing: ${progress}%`,
+    // Card control button aria-labels
+    labelPreviousOption: "Previous option",
+    labelNextOption: "Next option",
+    labelAddNewOption: "Add new option",
+    labelTextInput: "Text input",
+    labelDrawInput: "Draw input",
+    labelVoiceInput: "Voice input",
+    labelImageInput: "Image input",
+    labelCancel: "Cancel",
+    labelSave: "Save",
+    labelSaveCombination: "Save combination",
+    // Saved definitions list
+    definitionsAddedFor: (count: number, term: string) => `${count} DEFINITIONS ADDED FOR ${term.toUpperCase()}`,
+    sortRecent: "RECENT",
+    sortPopular: "POPULAR",
+    sortRandom: "RANDOM",
+    searchPlaceholder: "SEARCH",
+    labelLikeDefinition: "Like definition",
+    // Alerts
+    alertPleaseSelectOptions: "Please select an option for all three cards.",
+    alertMicrophoneError: "Microphone access denied or an error occurred.",
+    // Term Navigation aria-labels
+    labelPreviousTerm: "Previous term",
+    labelNextTerm: "Next term",
+    // Help and Menu Icon aria-labels in header
+    labelHelpIcon: "Help",
+    labelMenuIcon: "Menu",
+    noAudioContent: "No audio content.",
+    noImageContent: "No image content.",
+    noDrawingContent: "No drawing content.",
+  },
+  de: {
+    helpModalTitle: "SO VERWENDEN SIE DIESES TOOL",
+    helpModalIntro: "Dieses Tool hilft Ihnen, komplexe Begriffe wie 'DEMOKRATIE' im Kontext von Kultur und Klimawandel zu untersuchen und zu definieren.", // Used single quotes for inner term
+    helpModalStep1: "1. Verwenden Sie die Pfeil-Buttons unter jedem der drei Kartenstapel, um durch verschiedene Kartenoptionen zu wechseln.",
+    helpModalStep2: "2. Drücken Sie den Plus-Button unter jedem der drei Kartenstapel, um neue Kartenoptionen hinzuzufügen.",
+    helpModalStep3: "3. Sie können neue Karten hinzufügen, indem Sie A) ein Wort oder einen Absatz schreiben, B) ein Bild zeichnen, C) Audio aufnehmen oder D) ein Bild hochladen.",
+    helpModalStep4: "4. Sobald Sie mit einer Kombination zufrieden sind, können Sie auf den Speichern-Button auf der rechten Seite klicken, um Ihre neue Definition zur Liste unten hinzuzufügen.", // Used single quotes for inner term
+    noEtymology: "Für diesen Begriff sind keine Etymologie-Informationen verfügbar.",
+    remixDefinitionLabel: "Definition neu mischen",
+    cardTitleTypeCategory: "1. TYP / KATEGORIE",
+    cardTitleKeyAttributes: "2. BESONDERE ATTRIBUTE",
+    cardTitleImpactPurpose: "3. ZWECK / WIRKUNG",
+    textThat: "DER DIE    DAS",
+    textTo: "UM",
+    // Card input placeholders
+    placeholderEnterNew: (category: string) => `Neue ${category} eingeben...`,
+    placeholderDrawing: "Beginnen Sie hier zu zeichnen",
+    placeholderImageUpload: "Bild zum Hochladen auswählen",
+    placeholderTapToRecord: "Zum Aufnehmen tippen",
+    statusRecording: "Aufnahme...",
+    statusCompressing: (progress: number) => `Komprimierung: ${progress}%`,
+    // Card control button aria-labels
+    labelPreviousOption: "Vorherige Option",
+    labelNextOption: "Nächste Option",
+    labelAddNewOption: "Neue Option hinzufügen",
+    labelTextInput: "Texteingabe",
+    labelDrawInput: "Zeichnen",
+    labelVoiceInput: "Spracheingabe",
+    labelImageInput: "Bildeingabe",
+    labelCancel: "Abbrechen",
+    labelSave: "Speichern",
+    labelSaveCombination: "Kombination speichern",
+    // Saved definitions list
+    definitionsAddedFor: (count: number, term: string) => `${count} DEFINITIONEN HINZUGEFÜGT FÜR ${term.toUpperCase()}`,
+    sortRecent: "NEUESTE",
+    sortPopular: "BELIEBTESTE",
+    sortRandom: "ZUFÄLLIG",
+    searchPlaceholder: "SUCHEN",
+    labelLikeDefinition: "Definition liken",
+    // Alerts
+    alertPleaseSelectOptions: "Bitte wählen Sie für alle drei Karten eine Option aus.",
+    alertMicrophoneError: "Mikrofonzugriff verweigert oder Fehler aufgetreten.",
+    // Term Navigation aria-labels
+    labelPreviousTerm: "Vorheriger Begriff",
+    labelNextTerm: "Nächster Begriff",
+    // Help and Menu Icon aria-labels in header
+    labelHelpIcon: "Hilfe",
+    labelMenuIcon: "Menü",
+    noAudioContent: "Kein Audioinhalt.",
+    noImageContent: "Kein Bildinhalt.",
+    noDrawingContent: "Kein Zeichnungsinhalt.",
+  }
+};
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -259,16 +640,24 @@ function App() {
   // const [drawingDataUrl, setDrawingDataUrl] = useState<string | null>(null); // Will be stored in newOptionContent.content
 
   // --- State for current term ---
+  const [currentLanguage, setCurrentLanguage] = useState<'en' | 'de'>('en'); // ADDED Language state
   const [currentTermIdx, setCurrentTermIdx] = useState<number>(initialTermIndex);
-  const currentTermData = allTermsData[currentTermIdx];
-  const currentTerm = currentTermData.term;
-  const currentEtymology = currentTermData.etymology;
+
+  // Derive current term data based on language
+  const currentTermEntry = allTermsData[currentTermIdx];
+  const currentTermDisplayData = currentTermEntry[currentLanguage];
+  const T = uiTranslations[currentLanguage]; // ADDED: Get current language translations
+
+  const currentTerm = currentTermDisplayData.term;
+  const currentEtymology = currentTermDisplayData.etymology;
+  // const currentPhonetic = currentTermData.phonetic; // REMOVED, will be derived
+  const currentPhonetic = currentTermDisplayData.phonetic; // MODIFIED: Directly use phonetic from current language display data
 
 
   // --- State for currently selected card content ---
-  const [selectedTypeCategory, setSelectedTypeCategory] = useState<CardOptionValue>(currentTermData.defaultDefinition.typeCategory);
-  const [selectedKeyAttributes, setSelectedKeyAttributes] = useState<CardOptionValue>(currentTermData.defaultDefinition.keyAttributes);
-  const [selectedImpactPurpose, setSelectedImpactPurpose] = useState<CardOptionValue>(currentTermData.defaultDefinition.impactPurpose);
+  const [selectedTypeCategory, setSelectedTypeCategory] = useState<CardOptionValue>(currentTermDisplayData.defaultDefinition.typeCategory);
+  const [selectedKeyAttributes, setSelectedKeyAttributes] = useState<CardOptionValue>(currentTermDisplayData.defaultDefinition.keyAttributes);
+  const [selectedImpactPurpose, setSelectedImpactPurpose] = useState<CardOptionValue>(currentTermDisplayData.defaultDefinition.impactPurpose);
 
   // --- State for the list of available options (currently hardcoded) ---
   // In a real app, these would be fetched and could be more complex objects
@@ -280,6 +669,10 @@ function App() {
   const [savedDefinitions, setSavedDefinitions] = useState<Definition[]>([]);
   const [searchQuery, setSearchQuery] = useState(""); // State for the search query
   const [sortOrder, setSortOrder] = useState<'recent' | 'popular' | 'random'>('recent'); // State for sorting
+  const [likedDefinitionIds, setLikedDefinitionIds] = useState<string[]>(() => {
+    const storedLikes = localStorage.getItem('likedDefinitionIds');
+    return storedLikes ? JSON.parse(storedLikes) : [];
+  }); // State for liked definitions, initialized from localStorage
 
   // Modal disclosure hook
   const { isOpen: isHelpModalOpen, onOpen: onOpenHelpModal, onClose: onCloseHelpModal } = useDisclosure();
@@ -329,17 +722,19 @@ function App() {
     setCurrentTermIdx((prevIndex) => (prevIndex + 1) % allTermsData.length);
   };
 
-  // Effect to update selected definitions when the term changes
+  // Effect to update selected definitions when the term or language changes
   useEffect(() => {
-    const newTermData = allTermsData[currentTermIdx];
-    setSelectedTypeCategory(newTermData.defaultDefinition.typeCategory);
-    setSelectedKeyAttributes(newTermData.defaultDefinition.keyAttributes);
-    setSelectedImpactPurpose(newTermData.defaultDefinition.impactPurpose);
-    // Close etymology popover when term changes, if it was open
-    if (isEtymologyPopoverOpen) {
-      onCloseEtymologyPopover();
-    }
-  }, [currentTermIdx]); // MODIFIED Dependency Array
+    const newTermEntry = allTermsData[currentTermIdx];
+    const newTermDisplayData = newTermEntry[currentLanguage];
+    setSelectedTypeCategory(newTermDisplayData.defaultDefinition.typeCategory);
+    setSelectedKeyAttributes(newTermDisplayData.defaultDefinition.keyAttributes);
+    setSelectedImpactPurpose(newTermDisplayData.defaultDefinition.impactPurpose);
+  }, [currentTermIdx, currentLanguage, allTermsData]);
+
+  // Effect to close etymology popover when term or language changes
+  useEffect(() => {
+    onCloseEtymologyPopover();
+  }, [currentTermIdx, currentLanguage, onCloseEtymologyPopover]);
 
   // Helper to ensure fetched options are in the new format
   const mapToCardOptionValueArray = (options: any[]): CardOptionValue[] => {
@@ -490,16 +885,18 @@ function App() {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const definitionsData: Definition[] = [];
       querySnapshot.forEach((doc) => {
-        // Ensure an ID is present for key prop, and data matches Definition structure
         const data = doc.data();
+        const termTextFromData = data.termText || data.term; // Use this for lookups
         definitionsData.push({
           id: doc.id,
-          term: data.term || 'N/A',
+          termId: data.termId || (allTermsData.find(atd => atd.en.term === termTextFromData || atd.de.term === termTextFromData)?.id), // Backfill termId using termTextFromData
+          termLanguage: data.termLanguage || (termTextFromData && allTermsData.find(atd => atd.en.term === termTextFromData) ? 'en' : (termTextFromData ? 'de' : undefined)), // Infer language using termTextFromData
+          termText: termTextFromData, // Fallback for older 'term' field
           typeCategory: typeof data.typeCategory === 'string' ? {type: 'text', content: data.typeCategory} : data.typeCategory,
           keyAttributes: typeof data.keyAttributes === 'string' ? {type: 'text', content: data.keyAttributes} : data.keyAttributes,
           impactPurpose: typeof data.impactPurpose === 'string' ? {type: 'text', content: data.impactPurpose} : data.impactPurpose,
           createdAt: data.createdAt,
-          likes: data.likes || 0 // Ensure likes is initialized
+          likes: data.likes || 0
         } as Definition);
       });
       setSavedDefinitions(definitionsData);
@@ -512,14 +909,16 @@ function App() {
   // --- Event Handlers ---
   const handleSaveDefinition = async () => {
     if (!selectedTypeCategory.content || !selectedKeyAttributes.content || !selectedImpactPurpose.content) {
-      alert("Please select an option for all three cards.");
+      alert(T.alertPleaseSelectOptions);
       return;
     }
     const newDefinition: Definition = {
       typeCategory: selectedTypeCategory,
       keyAttributes: selectedKeyAttributes,
       impactPurpose: selectedImpactPurpose,
-      term: currentTerm,
+      termId: currentTermEntry.id, // Use language-neutral ID
+      termLanguage: currentLanguage, // Save current language context
+      termText: currentTerm, // Save the displayed term text
       createdAt: serverTimestamp(),
       likes: 0 // Initialize likes to 0 on new definition
     };
@@ -531,6 +930,33 @@ function App() {
     }
   };
   
+  const handleLike = async (definitionId: string, currentLikes: number) => {
+    if (!definitionId) return;
+
+    const alreadyLiked = likedDefinitionIds.includes(definitionId);
+    const newLikesCount = alreadyLiked ? Math.max(0, (currentLikes || 0) - 1) : (currentLikes || 0) + 1;
+
+    try {
+      const definitionRef = doc(db, 'definitions', definitionId);
+      await updateDoc(definitionRef, {
+        likes: newLikesCount,
+      });
+
+      if (alreadyLiked) {
+        setLikedDefinitionIds(prev => prev.filter(id => id !== definitionId));
+      } else {
+        setLikedDefinitionIds(prev => [...prev, definitionId]);
+      }
+    } catch (error) {
+      console.error("Error updating like:", error);
+    }
+  };
+
+  // Effect to save likedDefinitionIds to localStorage
+  useEffect(() => {
+    localStorage.setItem('likedDefinitionIds', JSON.stringify(likedDefinitionIds));
+  }, [likedDefinitionIds]);
+
   const handleShuffle = () => {
     if (typeCategoryOptions.length > 0) {
       const randomIndex = Math.floor(Math.random() * typeCategoryOptions.length);
@@ -998,7 +1424,7 @@ function App() {
     } catch (err) {
       console.error("Error accessing microphone:", err);
       // Handle permission denial or other errors
-      alert("Microphone access denied or an error occurred.");
+      alert(T.alertMicrophoneError);
     }
   };
 
@@ -1082,7 +1508,18 @@ function App() {
   }, []);
 
   // --- Render Input UI for Cards ---
-  const renderCardInputInterface = (categoryPlaceholder: string) => (
+  const renderCardInputInterface = (categoryPlaceholderKey: 'typeCategory' | 'keyAttributes' | 'impactPurpose') => {
+    // Determine the actual placeholder text based on the category key and current language
+    let actualPlaceholderText = '';
+    if (categoryPlaceholderKey === 'typeCategory') {
+      actualPlaceholderText = T.placeholderEnterNew(T.cardTitleTypeCategory.split('. ')[1] || 'Type/Category');
+    } else if (categoryPlaceholderKey === 'keyAttributes') {
+      actualPlaceholderText = T.placeholderEnterNew(T.cardTitleKeyAttributes.split('. ')[1] || 'Key Attributes');
+    } else if (categoryPlaceholderKey === 'impactPurpose') {
+      actualPlaceholderText = T.placeholderEnterNew(T.cardTitleImpactPurpose.split('. ')[1] || 'Purpose/Impact');
+    }
+
+    return (
     <VStack
       bg="white"
       p={"0px"} // Consistent padding, handled by inner elements
@@ -1098,7 +1535,7 @@ function App() {
         <Textarea
           value={newOptionContent.type === 'text' ? newOptionContent.content : ''}
           onChange={(e) => setNewOptionContent({ type: 'text', content: e.target.value })}
-          placeholder={`Enter new ${categoryPlaceholder}...`}
+          placeholder={actualPlaceholderText}
           _placeholder={{ fontSize: "16px", fontWeight: "medium", color: "gray.300" }}
           h="100%" // Fill padded area
           w="100%" // Fill padded area
@@ -1142,7 +1579,7 @@ function App() {
               pointerEvents="none" // So it doesn't interfere with drawing
             >
               <Text fontSize="16px" fontWeight="medium" color="gray.300">
-                Start drawing here
+                {T.placeholderDrawing}
               </Text>
             </Flex>
           )}
@@ -1167,7 +1604,7 @@ function App() {
           {!(uploadProgress > 0 && uploadProgress < 100) && !imagePreviewUrl && (
             <VStack spacing={6} justifyContent="center" alignItems="center" flexGrow={1} w="100%" pb="94px">
               <IconButton
-                aria-label="Upload image"
+                aria-label={T.labelImageInput}
                 icon={<Upload size={46} strokeWidth={1.5} />}// variant="ghost" removed from icon component
                 onClick={() => fileInputRef.current?.click()}
                 size="xl" // Maintained from user's previous adjustment
@@ -1180,7 +1617,7 @@ function App() {
                 _focus={{ boxShadow: "none" }} // Focus state to match other tool buttons
               />
               <Text fontSize="16px" fontWeight="medium" color="gray.300" pt="4px">
-                Select an image to upload
+                {T.placeholderImageUpload}
               </Text>
             </VStack>
           )}
@@ -1266,12 +1703,12 @@ function App() {
                 )}
                 {isRecording && (
                   <Text fontSize="16px" fontWeight="medium" color="gray.300" mt={1}>
-                    Recording... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                    {T.statusRecording} {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
                   </Text>
                 )}
               </Box>
                {!isRecording && !audioURL && (
-                <Text fontSize="16px" fontWeight="medium" color="gray.300" mt={2} pb="3px">Tap to record</Text>
+                <Text fontSize="16px" fontWeight="medium" color="gray.300" mt={2} pb="3px">{T.placeholderTapToRecord}</Text>
               )}
             </VStack>
           )}
@@ -1279,6 +1716,7 @@ function App() {
       )}
     </VStack>
   );
+};
 
   // --- Component to display card content (text or drawing) ---
   const CardContentDisplay = ({ option, displayContext = 'mainCard' }: { option: CardOptionValue, displayContext?: 'mainCard' | 'savedList' }) => {
@@ -1288,6 +1726,10 @@ function App() {
     const popoverAudioRef = useRef<HTMLAudioElement>(null);
     const popoverWaveformCanvasRef = useRef<HTMLCanvasElement>(null);
     const localAudioContextRef = useRef<AudioContext | null>(null); 
+    // Use a unique disclosure state for each popover instance if they are independent
+    // However, if only one popover can be open at a time for a CardContentDisplay instance, one state is fine.
+    // For simplicity and assuming one media popover per card item at a time:
+    const { isOpen: isMediaPopoverOpen, onOpen: onOpenMediaPopover, onClose: onCloseMediaPopover } = useDisclosure();
 
     // State and refs for audio display in mainCard
     const [mainCardWaveformData, setMainCardWaveformData] = useState<number[] | null>(null);
@@ -1299,11 +1741,11 @@ function App() {
     // Effect to load and process audio for popover in savedList
     useEffect(() => {
       let isActive = true;
-      if (option.type === 'audio' && displayContext === 'savedList' && option.content) {
+      if (option.type === 'audio' && displayContext === 'savedList' && option.content && isMediaPopoverOpen) { // Only process if popover is open
         // Check for pre-computed waveform data first
         if (option.waveformData && option.waveformData.length > 0) {
           if (isActive) setPopoverWaveformData(option.waveformData);
-        } else if (!popoverWaveformData) { // Only process if not already set and no pre-computed data
+        } else if (!popoverWaveformData || popoverWaveformData.length === 0) { // Only process if not already set and no pre-computed data or if data is empty
           if (!localAudioContextRef.current) { // Ensure AudioContext for this instance
             localAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
           }
@@ -1315,8 +1757,12 @@ function App() {
           });
         }
       }
+      // Clear waveform data when popover closes to ensure fresh load next time
+      if (!isMediaPopoverOpen && isActive) {
+        setPopoverWaveformData(null);
+      }
       return () => { isActive = false };
-    }, [option, displayContext, popoverWaveformData]);
+    }, [option, displayContext, popoverWaveformData, isMediaPopoverOpen]); // Added isMediaPopoverOpen
 
     // Effect to load and process audio for mainCard
     useEffect(() => {
@@ -1349,7 +1795,7 @@ function App() {
 
     // Effect to draw playback waveform in Popover (savedList)
     useEffect(() => {
-      if (popoverWaveformData && popoverWaveformCanvasRef.current && displayContext === 'savedList' && option.type === 'audio') {
+      if (popoverWaveformData && popoverWaveformCanvasRef.current && displayContext === 'savedList' && option.type === 'audio' && isMediaPopoverOpen) { // Added isMediaPopoverOpen
         const canvas = popoverWaveformCanvasRef.current;
         const context = canvas.getContext('2d');
         if (!context) return;
@@ -1369,7 +1815,7 @@ function App() {
           });
         }
       }
-    }, [popoverWaveformData, option, displayContext, windowSize]); // Added windowSize
+    }, [popoverWaveformData, option, displayContext, windowSize, isMediaPopoverOpen]); // Added windowSize and isMediaPopoverOpen
 
     // Effect to draw playback waveform in mainCard
     useEffect(() => {
@@ -1398,105 +1844,129 @@ function App() {
       return <Text>Error: Invalid option</Text>; // Fallback for invalid data
     }
 
-    if (option.type === 'drawing' || option.type === 'image') { // Handle image type similarly to drawing for display
-      if (displayContext === 'savedList') {
+    // NEW simplified rendering for 'savedList' context to match the boxed layout
+    if (displayContext === 'savedList') {
+      if (option.type === 'text') {
         return (
-          <Popover trigger="hover" placement="top">
+          <Text 
+            textAlign="left" 
+            fontSize="16px" 
+            fontWeight="medium" 
+            color="black" 
+            title={option.content} 
+            w="100%"
+          >
+            {option.content || '-'}
+          </Text>
+        );
+      } else if (option.type === 'audio') {
+        return (
+          <Popover isOpen={isMediaPopoverOpen} onOpen={onOpenMediaPopover} onClose={onCloseMediaPopover} placement="top" gutter={10} >
             <PopoverTrigger>
-              <IconButton 
-                aria-label={option.type === 'drawing' ? "View drawing" : "View image"} 
-                icon={<Edit3 size={18} />} // Using Edit3 icon for drawing/image in list for now
-                variant="ghost"
-                size="sm"
-              />
+              <Box as="span" cursor="pointer" onClick={onOpenMediaPopover} display="inline-flex" alignItems="center" justifyContent="center">
+                <Mic size={23} strokeWidth={2.5}/>
+              </Box>
             </PopoverTrigger>
-            <PopoverContent boxShadow="lg" borderColor="gray.300">
-              <PopoverArrow bg="white"/>
-              <PopoverCloseButton />
-              <PopoverHeader border="0" fontWeight="semibold">{option.type === 'drawing' ? "Drawing" : "Image"}</PopoverHeader>
-              <PopoverBody p={2}> {/* Reduced padding for tighter fit */}
-                <ChakraImage src={option.content} alt={option.type === 'drawing' ? "User drawing" : "User image"} maxW="200px" maxH="200px" objectFit="contain" />
+            <PopoverContent p={3} w="250px" h="250px" bg="white" alignItems="center" justifyContent="center" borderColor="white" borderWidth="0px" boxShadow="lg" borderRadius="7px">
+              <PopoverArrow />
+             
+              
+              <PopoverBody>
+                {option.content ? (
+                  <>
+                    <canvas 
+                      ref={popoverWaveformCanvasRef}
+                      style={{ width: "220px", height: '40px', cursor: 'pointer', borderRadius: '0px', backgroundColor: 'white' }}
+                      onClick={() => {
+                        if (popoverAudioRef.current) {
+                          if (isPopoverAudioPlaying) popoverAudioRef.current.pause();
+                          else popoverAudioRef.current.play();
+                        }
+                      }}
+                    />
+                    <audio 
+                      ref={popoverAudioRef} 
+                      src={option.content} 
+                      onPlay={() => setIsPopoverAudioPlaying(true)} 
+                      onPause={() => setIsPopoverAudioPlaying(false)} 
+                      onEnded={() => setIsPopoverAudioPlaying(false)} 
+                      style={{ display: 'none' }} 
+                    />
+                   
+                  </>
+                ) : <Text fontSize="sm">{T.noAudioContent}</Text>}
+              </PopoverBody>
+            </PopoverContent>
+          </Popover>
+        );
+      } else if (option.type === 'image') {
+        return (
+          <Popover isOpen={isMediaPopoverOpen} onOpen={onOpenMediaPopover} onClose={onCloseMediaPopover} placement="top" gutter={10} >
+            <PopoverTrigger>
+              <Box as="span" cursor="pointer" onClick={onOpenMediaPopover} display="inline-flex" alignItems="center" justifyContent="center">
+                <Image size={23} strokeWidth={2.5}/>
+              </Box>
+            </PopoverTrigger>
+            <PopoverContent w="250px" h="250px" p={1} bg="white" borderColor="white" alignItems="center" justifyContent="center" borderWidth="0px" boxShadow="lg" borderRadius="10px">
+              <PopoverArrow />
+             
+              <PopoverBody>
+                {option.content ? <ChakraImage src={option.content} alt="User image" w="220px" h="220px" objectFit="contain" borderRadius="7px" /> : <Text fontSize="sm">{T.noImageContent}</Text>}
+              </PopoverBody>
+            </PopoverContent>
+          </Popover>
+        );
+      } else if (option.type === 'drawing') {
+        return (
+          <Popover isOpen={isMediaPopoverOpen} onOpen={onOpenMediaPopover} onClose={onCloseMediaPopover} placement="top" gutter={10} >
+            <PopoverTrigger>
+              <Box as="span" cursor="pointer" onClick={onOpenMediaPopover} display="inline-flex" alignItems="center" justifyContent="center">
+                <Edit3 size={23} strokeWidth={2.5}/>
+              </Box>
+            </PopoverTrigger>
+            <PopoverContent w="250px" h="250px" alignItems="center" justifyContent="center" p={1} bg="white" borderColor="white" borderWidth="0px" boxShadow="lg" borderRadius="10px">
+              <PopoverArrow />
+              
+              <PopoverBody>
+                {option.content ? <ChakraImage src={option.content} alt="User drawing" w="220px" h="220px" objectFit="contain" borderRadius="sm" /> : <Text fontSize="sm">{T.noDrawingContent}</Text>}
               </PopoverBody>
             </PopoverContent>
           </Popover>
         );
       }
-      // Default for mainCard or other contexts
+      return <Text>?</Text>; // Fallback for unknown type in savedList
+    }
+
+    // --- Original rendering logic for mainCard context and other contexts (text, drawing, image, audio) ---
+    // This part remains unchanged for now, handling the main card displays.
+
+    if (option.type === 'drawing' || option.type === 'image') {
+      // Current mainCard rendering for drawing/image - This is NOT for savedList anymore
       return <ChakraImage 
         src={option.content} 
         alt={option.type === 'drawing' ? "User drawing" : "User image"} 
-        objectFit="cover" // Changed to cover for square cards
+        objectFit="cover" 
         w="100%" 
         h="100%" 
         borderRadius={option.type === 'image' || option.type === 'drawing' ? "32px" : "0px"}
-        p={3} // Removed internal padding, image fills the square card
-      />; 
+        p={3}
+      />;
     }
 
     if (option.type === 'audio') {
-      if (displayContext === 'savedList') {
+      // Current mainCard rendering for audio - This is NOT for savedList anymore
         return (
-          <Popover trigger="hover" placement="top" isLazy>
-            <PopoverTrigger>
-              <IconButton
-                aria-label="View audio"
-                icon={<Mic size={18} />}
-                variant="ghost"
-                size="sm"
-              />
-            </PopoverTrigger>
-            <PopoverContent boxShadow="lg" borderColor="gray.300" w="250px">
-              <PopoverArrow bg="white" />
-              <PopoverCloseButton />
-              <PopoverHeader border="0" fontWeight="semibold">Audio Playback</PopoverHeader>
-              <PopoverBody p={2}>
-                <VStack spacing={2}>
-                  <canvas
-                    ref={popoverWaveformCanvasRef}
-                    style={{ width: '100%', height: '40px', borderRadius: '4px', backgroundColor: 'gray.50' }}
-                    width={200} // Initial base width, JS will override with clientWidth
-                    height={40}   // Initial base height
-                  />
-                  <IconButton
-                    aria-label={isPopoverAudioPlaying ? "Pause" : "Play"}
-                    icon={isPopoverAudioPlaying ? <StopCircle size={20} /> : <ChevronRight size={20} />}
-                    onClick={() => {
-                      if (popoverAudioRef.current) {
-                        if (isPopoverAudioPlaying) {
-                          popoverAudioRef.current.pause();
-                        } else {
-                          popoverAudioRef.current.play();
-                        }
-                      }
-                    }}
-                    size="sm"
-                  />
-                  <audio
-                    ref={popoverAudioRef}
-                    src={option.content} // This is the blob URL
-                    style={{ display: 'none' }}
-                    onPlay={() => setIsPopoverAudioPlaying(true)}
-                    onPause={() => setIsPopoverAudioPlaying(false)}
-                    onEnded={() => setIsPopoverAudioPlaying(false)}
-                  />
-                </VStack>
-              </PopoverBody>
-            </PopoverContent>
-          </Popover>
-        );
-      } else { // Handles mainCard and any other contexts for audio
-        return (
-          <Box w="100%" p={3}> {/* Changed from VStack to Box w="100%" */}
+          <Box w="100%" p={3}> 
             <canvas 
               ref={mainCardWaveformCanvasRef} 
-              width={10} // Small initial HTML width
-              height={60}  // Initial HTML height (can match CSS or be adjusted by clientHeight)
+              width={10} 
+              height={60}
               style={{ 
                 width: '100%', 
-                height: '60px', // Fixed display height for main card waveform
+                height: '60px', 
                 border: "0px solid #e2e8f0", 
                 borderRadius: "md",
-                cursor: 'pointer' // Indicate the waveform is clickable
+                cursor: 'pointer'
               }}
               onClick={() => {
                 if (mainCardAudioRef.current) {
@@ -1508,10 +1978,9 @@ function App() {
                 }
               }}
             />
-            {/* IconButton removed */}
             <audio 
               ref={mainCardAudioRef} 
-              src={option.content} // This is the blob URL for the selected option
+              src={option.content} 
               style={{ display: 'none' }}
               onPlay={() => setIsMainCardAudioPlaying(true)}
               onPause={() => setIsMainCardAudioPlaying(false)}
@@ -1519,43 +1988,25 @@ function App() {
             />
           </Box>
         );
-      }
     }
     
-    // Text display
-    if (displayContext === 'savedList') {
-        // No special background for text in the list
-        return (
-            <Text 
-              fontSize="sm" 
-              textAlign="left" 
-              fontWeight="medium"
-              noOfLines={3} // Increased lines for list display
-              title={option.content} // Show full text on hover (browser default)
-              // w="full" // Removed to allow natural width
-            >
-              {option.content || '-'}
-            </Text>
-        );
-    }
-
     // Default for mainCard or other contexts (text)
     return (
-      <Flex // Wrap Text in Flex for vertical centering and height control
+      <Flex 
         h="100%"
         w="100%"
         alignItems="center"
-        justifyContent="flex-start" // Keep text left-aligned
-        p={6} // Add padding here for text content
-        borderRadius="30px" // Match card borderRadius
+        justifyContent="flex-start" 
+        p={6} 
+        borderRadius="30px"
       >
         <Text 
           fontSize="md" 
           textAlign="left" 
           fontWeight="medium" 
           lineHeight="1.3"
-          whiteSpace="pre-wrap" // To respect newlines in text
-          overflowWrap="break-word" // Added to prevent text overflow
+          whiteSpace="pre-wrap" 
+          overflowWrap="break-word"
         >
           {option.content || 'Loading...'}
         </Text>
@@ -1586,16 +2037,34 @@ function App() {
           </Heading>
           <Spacer />
           <HStack spacing={3} pr={7}>
-            <IconButton aria-label="Help" icon={<HelpCircle size={23} strokeWidth={2.5} />} variant="ghost" color="black" _hover={{ color: "white" }} onClick={onOpenHelpModal} />
-            <IconButton aria-label="Menu" icon={<MenuIconFeather size={23} strokeWidth={2.5} />} variant="ghost" color="black" _hover={{ color: "white" }} />
+            <Button 
+              variant="ghost" 
+              color="black" 
+              _hover={{ color: "white", bg: "blackAlpha.300" }} // Added bg on hover for consistency if other ghost buttons have it
+              _active={{ bg: "blackAlpha.400" }} // Added active state bg
+              onClick={() => setCurrentLanguage(currentLanguage === 'en' ? 'de' : 'en')}
+              fontWeight="bold"
+              // size="sm" // Removed size="sm"
+              width="40px" // Explicit width for square shape
+              height="40px" // Explicit height for square shape
+              minWidth="40px" // Ensure minWidth doesn't override
+              p={0} // Remove padding to allow text to center in fixed size
+              borderRadius="md" // Standard border radius for buttons/icon buttons
+              lineHeight="40px" // Center text vertically
+              textAlign="center"
+            >
+              {currentLanguage.toUpperCase()}
+            </Button>
+            <IconButton aria-label={T.labelHelpIcon} icon={<HelpCircle size={23} strokeWidth={2.5} />} variant="ghost" color="black" _hover={{ color: "white" }} onClick={onOpenHelpModal} />
+            <IconButton aria-label={T.labelMenuIcon} icon={<MenuIconFeather size={23} strokeWidth={2.5} />} variant="ghost" color="black" _hover={{ color: "white" }} />
           </HStack>
         </Flex>
 
         {/* Term Display Section */}
         <VStack spacing={5} align="center" mt={10}>
-          <Text fontSize="17px" color="white" letterSpacing="4px">[dɪˈmɒkrəsi]</Text> {/* This IPA might need to be dynamic too if terms change */}
+          <Text fontSize="17px" color="white" letterSpacing="4px">{currentPhonetic || ''}</Text> {/* Display phonetic or empty string */}
           <HStack alignItems="center">
-            <IconButton aria-label="Previous term" icon={<ChevronLeft size={23} strokeWidth={2.5} />} variant="ghost" color="black" bg="whiteAlpha.300" _hover={{ bg: "white" }} borderRadius="10px" onClick={handlePreviousTerm} mr="100px" />
+            <IconButton aria-label={T.labelPreviousTerm} icon={<ChevronLeft size={23} strokeWidth={2.5} />} variant="ghost" color="black" bg="whiteAlpha.300" _hover={{ bg: "white" }} borderRadius="10px" onClick={handlePreviousTerm} mr="100px" /> {/* TRANSLATED */}
             <Popover
               placement="top"
               gutter={-80}
@@ -1657,12 +2126,12 @@ function App() {
                     textAlign="center"
                     // pt={8} removed
                   >
-                    <Text>No etymology information available for this term.</Text>
+                    <Text>{T.noEtymology}</Text>
                   </PopoverBody>
                 )}
               </PopoverContent>
             </Popover>
-            <IconButton aria-label="Next term" icon={<ChevronRight size={23} strokeWidth={2.5} />} variant="ghost"  bg="whiteAlpha.300" _hover={{ bg: "white" }} borderRadius="10px" onClick={handleNextTerm} ml="100px" />
+            <IconButton aria-label={T.labelNextTerm} icon={<ChevronRight size={23} strokeWidth={2.5} />} variant="ghost"  bg="whiteAlpha.300" _hover={{ bg: "white" }} borderRadius="10px" onClick={handleNextTerm} ml="100px" /> {/* TRANSLATED */}
           </HStack>
         </VStack>
 
@@ -1684,10 +2153,10 @@ function App() {
                 textAlign="center"
                 w="full"
               >
-                1. TYPE / CATEGORY
+                {T.cardTitleTypeCategory} {/* TRANSLATED */}
               </Heading>
               {editingCategory === 'typeCategory' ? (
-                renderCardInputInterface('type/category')
+                renderCardInputInterface('typeCategory') // CORRECTED: Pass key for translation lookup
               ) : (
                 <VStack 
                   bg="white" 
@@ -1715,20 +2184,20 @@ function App() {
               >
                 {editingCategory === 'typeCategory' ? (
                   <>
-                    <IconButton aria-label="Cancel" icon={<X size={23} strokeWidth={2.5}/>} onClick={handleCloseInputInterface} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm" />
+                    <IconButton aria-label={T.labelCancel} icon={<X size={23} strokeWidth={2.5}/>} onClick={handleCloseInputInterface} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm" /> {/* TRANSLATED */}
                     {/* Toolbar icons always visible when editingCategory is active */}
                     <HStack spacing={3}> 
-                      <IconButton aria-label="Text input" icon={<Type size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'text' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('text')} />
-                      <IconButton aria-label="Draw input" icon={<Edit3 size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'drawing' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('drawing')} />
-                      <IconButton aria-label="Voice input" icon={<Mic size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'voice' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('voice')} />
-                      <IconButton aria-label="Image input" icon={<Image size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'image' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('image')} />
+                      <IconButton aria-label={T.labelTextInput} icon={<Type size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'text' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('text')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelDrawInput} icon={<Edit3 size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'drawing' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('drawing')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelVoiceInput} icon={<Mic size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'voice' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('voice')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelImageInput} icon={<Image size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'image' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('image')} /> {/* TRANSLATED */}
                     </HStack>
-                    <IconButton aria-label="Save" icon={<Check size={23} strokeWidth={2.5}/>} onClick={handleSaveNewOption} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm" isDisabled={isRecording} />
+                    <IconButton aria-label={T.labelSave} icon={<Check size={23} strokeWidth={2.5}/>} onClick={handleSaveNewOption} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm" isDisabled={isRecording} /> {/* TRANSLATED */}
                   </>
                 ) : (
                   <>
                     <IconButton 
-                      aria-label="Previous option" 
+                      aria-label={T.labelPreviousOption} 
                       icon={<ChevronUp size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1741,7 +2210,7 @@ function App() {
                       _focus={{ boxShadow: "none" }}
                     />
                     <IconButton 
-                      aria-label="Add new option" 
+                      aria-label={T.labelAddNewOption} 
                       icon={<Plus size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1755,7 +2224,7 @@ function App() {
                       _active={{ bg: "white" }}
                     />
                     <IconButton 
-                      aria-label="Next option" 
+                      aria-label={T.labelNextOption} 
                       icon={<ChevronDown size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1773,7 +2242,7 @@ function App() {
             </VStack>
 
             <Box w={16} textAlign="center" minH="340px" display="flex" alignItems="center" justifyContent="center">
-              <Text fontSize="16px" fontWeight="medium" pb={9} color="black">THAT</Text>
+              <Text fontSize="16px" fontWeight="medium" pb={9} color="black">{T.textThat.toUpperCase()}</Text> {/* TRANSLATED */}
             </Box>
 
             {/* Card 2 with Title above and Buttons Below */}
@@ -1787,10 +2256,10 @@ function App() {
                 textAlign="center"
                 w="full"
               >
-                2. KEY ATTRIBUTES
+                {T.cardTitleKeyAttributes} {/* TRANSLATED */}
               </Heading>
               {editingCategory === 'keyAttributes' ? (
-                renderCardInputInterface('key attributes')
+                renderCardInputInterface('keyAttributes') // CORRECTED: Pass key for translation lookup
               ) : (
                 <VStack 
                   bg="white"  
@@ -1818,20 +2287,20 @@ function App() {
               >
                 {editingCategory === 'keyAttributes' ? (
                   <>
-                    <IconButton aria-label="Cancel" icon={<X size={23} strokeWidth={2.5}/>} onClick={handleCloseInputInterface} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm"/>
+                    <IconButton aria-label={T.labelCancel} icon={<X size={23} strokeWidth={2.5}/>} onClick={handleCloseInputInterface} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm"/> {/* TRANSLATED */}
                     {/* Toolbar icons always visible when editingCategory is active */}
                     <HStack spacing={3}> 
-                      <IconButton aria-label="Text input" icon={<Type size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'text' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('text')} />
-                      <IconButton aria-label="Draw input" icon={<Edit3 size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'drawing' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('drawing')} />
-                      <IconButton aria-label="Voice input" icon={<Mic size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'voice' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('voice')} />
-                      <IconButton aria-label="Image input" icon={<Image size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'image' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('image')} />
+                      <IconButton aria-label={T.labelTextInput} icon={<Type size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'text' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('text')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelDrawInput} icon={<Edit3 size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'drawing' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('drawing')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelVoiceInput} icon={<Mic size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'voice' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('voice')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelImageInput} icon={<Image size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'image' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('image')} /> {/* TRANSLATED */}
                     </HStack>
-                    <IconButton aria-label="Save" icon={<Check size={23} strokeWidth={2.5}/>} onClick={handleSaveNewOption} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm" isDisabled={isRecording}/>
+                    <IconButton aria-label={T.labelSave} icon={<Check size={23} strokeWidth={2.5}/>} onClick={handleSaveNewOption} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm" isDisabled={isRecording}/> {/* TRANSLATED */}
                   </>
                 ) : (
                   <>
                     <IconButton 
-                      aria-label="Previous option" 
+                      aria-label={T.labelPreviousOption} 
                       icon={<ChevronUp size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1844,7 +2313,7 @@ function App() {
                       _focus={{ boxShadow: "none" }}
                     />
                     <IconButton 
-                      aria-label="Add new option" 
+                      aria-label={T.labelAddNewOption} 
                       icon={<Plus size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1858,7 +2327,7 @@ function App() {
                       _active={{ bg: "white" }}
                     />
                     <IconButton 
-                      aria-label="Next option" 
+                      aria-label={T.labelNextOption} 
                       icon={<ChevronDown size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1876,7 +2345,7 @@ function App() {
             </VStack>
 
             <Box w={16} textAlign="center" minH="340px" display="flex" alignItems="center" justifyContent="center">
-              <Text fontSize="16px" fontWeight="medium" pb={9} color="black">TO</Text>
+              <Text fontSize="16px" fontWeight="medium" pb={9} color="black">{T.textTo.toUpperCase()}</Text> {/* TRANSLATED */}
             </Box>
 
             {/* Card 3 with Title above and Buttons Below */}
@@ -1890,10 +2359,10 @@ function App() {
                 textAlign="center"
                 w="full"
               >
-                3. PURPOSE / IMPACT
+                {T.cardTitleImpactPurpose} {/* TRANSLATED */}
               </Heading>
               {editingCategory === 'impactPurpose' ? (
-                renderCardInputInterface('impact/purpose')
+                renderCardInputInterface('impactPurpose') // CORRECTED: Pass key for translation lookup
               ) : (
                 <VStack 
                   bg="white" 
@@ -1921,20 +2390,20 @@ function App() {
               >
                 {editingCategory === 'impactPurpose' ? (
                   <>
-                    <IconButton aria-label="Cancel" icon={<X size={23} strokeWidth={2.5}/>} onClick={handleCloseInputInterface} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm"/>
+                    <IconButton aria-label={T.labelCancel} icon={<X size={23} strokeWidth={2.5}/>} onClick={handleCloseInputInterface} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm"/> {/* TRANSLATED */}
                     {/* Toolbar icons always visible when editingCategory is active */}
                     <HStack spacing={3}> 
-                      <IconButton aria-label="Text input" icon={<Type size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'text' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('text')} />
-                      <IconButton aria-label="Draw input" icon={<Edit3 size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'drawing' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('drawing')} />
-                      <IconButton aria-label="Voice input" icon={<Mic size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'voice' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('voice')} />
-                      <IconButton aria-label="Image input" icon={<Image size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'image' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('image')} />
+                      <IconButton aria-label={T.labelTextInput} icon={<Type size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'text' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('text')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelDrawInput} icon={<Edit3 size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'drawing' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('drawing')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelVoiceInput} icon={<Mic size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'voice' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('voice')} /> {/* TRANSLATED */}
+                      <IconButton aria-label={T.labelImageInput} icon={<Image size={23} strokeWidth={2.5}/>} variant="ghost" color={activeInputMode === 'image' ? 'black' : 'gray.300'} _hover={{ color: "black" }} size="sm" onClick={() => handleChangeInputMode('image')} /> {/* TRANSLATED */}
                     </HStack>
-                    <IconButton aria-label="Save" icon={<Check size={23} strokeWidth={2.5}/>} onClick={handleSaveNewOption} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm" isDisabled={isRecording}/>
+                    <IconButton aria-label={T.labelSave} icon={<Check size={23} strokeWidth={2.5}/>} onClick={handleSaveNewOption} variant="ghost" color="gray.300" _hover={{ color: "black" }} size="sm" isDisabled={isRecording}/> {/* TRANSLATED */}
                   </>
                 ) : (
                   <>
                     <IconButton 
-                      aria-label="Previous option" 
+                      aria-label={T.labelPreviousOption} 
                       icon={<ChevronUp size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1947,7 +2416,7 @@ function App() {
                       _focus={{ boxShadow: "none" }}
                     />
                     <IconButton 
-                      aria-label="Add new option" 
+                      aria-label={T.labelAddNewOption} 
                       icon={<Plus size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1961,7 +2430,7 @@ function App() {
                       _active={{ bg: "white" }}
                     />
                     <IconButton 
-                      aria-label="Next option" 
+                      aria-label={T.labelNextOption} 
                       icon={<ChevronDown size={23} strokeWidth={2.5} />} 
                       variant="solid" 
                       bg="whiteAlpha.300" 
@@ -1980,8 +2449,8 @@ function App() {
           </HStack>
           <Box minH="340px" display="flex" alignItems="center" justifyContent="center" pb={9} pr={3}>
             <IconButton
-              aria-label="Save combination"
-              icon={<Save size={23} strokeWidth={2.5} />}
+              aria-label={T.labelSaveCombination} // TRANSLATED
+              icon={<Save size={23} strokeWidth={2.5} />} 
               borderRadius="10px"
               variant="ghost"
               color="black"
@@ -1995,30 +2464,13 @@ function App() {
 
         {/* Saved Definitions List */}
         {savedDefinitions.length > 0 && (
-          <VStack spacing={4} mt={16} w="100%" align="stretch" bg="white" p={6} borderRadius="0">
-            <Flex py={3} px={5} justify="space-between" align="center" w="100%" mb={4}>
-              <Text borderRadius="10px" bg="gray.100" fontSize="12px" color="black" fontWeight="medium" px="12px" py="10px" borderWidth="1px" borderColor="gray.100"> {savedDefinitions.filter(def => def.term === currentTerm).length} DEFINITIONS ADDED SO FAR</Text>
-              <HStack spacing={4}>
-                <InputGroup w="200px">
-                  <InputLeftElement pointerEvents="none">
-                    <Search size={23} strokeWidth={2.5} color="black" />
-                  </InputLeftElement>
-                  <Input
-                    type="text"
-                    placeholder="SEARCH"
-                    fontWeight="medium"
-                    fontSize="12px"
-                    borderRadius="10px"
-                    bg="gray.100"
-                    borderWidth="1px"
-                    borderColor="gray.100"
-                    _placeholder={{ color: 'black' }}
-                    color="black"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    textTransform="none"
-                  />
-                </InputGroup>
+          <VStack spacing={6} mt={16} w="100%" align="stretch" bg="transparent" p={6} borderRadius="0" pt={138} pl={110}>
+            <Flex  py={5} px={5} justify="space-between" align="center" w="100%" mb={3}>
+              <Text borderRadius="10px" bg="whiteAlpha.300" fontSize="12px" color="black" fontWeight="medium" px="12px" py="10px" borderWidth="px" borderColor="transparent">
+                {T.definitionsAddedFor(savedDefinitions.filter(def => def.termId === currentTermEntry.id).length, currentTerm)}
+              </Text>
+              <HStack spacing={8} pr="85px" >
+        
                 <Menu gutter={0}>
                   <MenuButton 
                     as={Button} 
@@ -2027,16 +2479,20 @@ function App() {
                     px="12px" 
                     py="10px" 
                     borderRadius="10px" 
-                    bg="gray.100" 
+                    bg="whiteAlpha.300" 
                     color="black" 
                     fontWeight="medium"
                     w="110px" // Explicit width for the button
                   >
-                    {sortOrder.toUpperCase()}
+                    {/* UPDATED: Ensure this part uses the T object for translations */}
+                    {currentLanguage === 'de' ? 
+                      (sortOrder === 'recent' ? uiTranslations.de.sortRecent : sortOrder === 'popular' ? uiTranslations.de.sortPopular : uiTranslations.de.sortRandom) :
+                      (sortOrder.toUpperCase())}
                   </MenuButton>
                   <MenuList 
+                    
                     bg="white" 
-                        borderColor="gray.100" 
+                        borderColor="whiteAlpha.300" 
                         borderWidth="3px"
                     borderRadius="10px" 
                     py="0px" // Remove padding from MenuList, apply to MenuItem
@@ -2046,54 +2502,75 @@ function App() {
                     {sortOrder !== 'recent' && (
                       <MenuItem 
                         onClick={() => setSortOrder('recent')} 
-                        _hover={{ bg: "gray.100" }} 
+                        _hover={{ bg: "whiteAlpha.300" }} 
                         color="black" 
                         fontSize="12px" 
                         fontWeight="medium" 
                         px="12px" 
                         py="10px"
                       >
-                        RECENT
+                        {T.sortRecent.toUpperCase()} {/* TRANSLATED */}
                       </MenuItem>
                     )}
                     {sortOrder !== 'popular' && (
                       <MenuItem 
-                        onClick={() => setSortOrder('popular')} 
-                        _hover={{ bg: "gray.100" }} 
+                        onClick={() => setSortOrder('popular') } 
+                        _hover={{ bg: "whiteAlpha.300" }} 
                         color="black" 
                         fontSize="12px" 
                         fontWeight="medium" 
                         px="12px" 
                         py="10px"
                       >
-                        POPULAR
+                        {T.sortPopular.toUpperCase()} {/* TRANSLATED */}
                       </MenuItem>
                     )}
                     {sortOrder !== 'random' && (
                       <MenuItem 
                         onClick={() => setSortOrder('random')} 
-                        _hover={{ bg: "gray.100" }} 
+                        _hover={{ bg: "whiteAlpha.300" }} 
                         color="black" 
                         fontSize="12px" 
                         fontWeight="medium" 
                         px="12px" 
                         py="10px"
                       >
-                        RANDOM
+                        {T.sortRandom.toUpperCase()} {/* TRANSLATED */}
                       </MenuItem>
                     )}
                   </MenuList>
+                  <InputGroup w="200px">
+                  <InputLeftElement pointerEvents="none">
+                    <Search size={23} strokeWidth={2.5} color="black" />
+                  </InputLeftElement>
+                  <Input
+                    type="text"
+                    placeholder={T.searchPlaceholder} // TRANSLATED
+                    fontWeight="medium"
+                    fontSize="12px"
+                    borderRadius="10px"
+                    bg="whiteAlpha.300"
+                    borderWidth="0px"
+                    borderColor="whiteAlpha.300"
+                    _placeholder={{ color: 'black' }}
+                    color="black"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    textTransform="none"
+                  />
+                </InputGroup>
                 </Menu>
               </HStack>
             </Flex>
 
             {savedDefinitions
-              .filter((def: Definition) => def.term === currentTerm) // Filter by current term
+              .filter((def: Definition) => def.termId === currentTermEntry.id) // Filter by termId
               .filter((def: Definition) => {
                 if (!searchQuery) return true; // If no search query, show all for the current term
                 const searchTerm = searchQuery.toLowerCase();
+                // Search in termText (which is language specific) and card contents
                 return (
-                  (def.term && def.term.toLowerCase().includes(searchTerm)) ||
+                  (def.termText && def.termText.toLowerCase().includes(searchTerm)) ||
                   (def.typeCategory.content && def.typeCategory.type === 'text' && def.typeCategory.content.toLowerCase().includes(searchTerm)) ||
                   (def.keyAttributes.content && def.keyAttributes.type === 'text' && def.keyAttributes.content.toLowerCase().includes(searchTerm)) ||
                   (def.impactPurpose.content && def.impactPurpose.type === 'text' && def.impactPurpose.content.toLowerCase().includes(searchTerm))
@@ -2122,33 +2599,171 @@ function App() {
                 }
                 return 0;
               })
-              .map((def: Definition, index: number) => (
-              <VStack key={def.id || index} align="stretch" spacing={3}>
-                <Flex py={3} px={5} borderRadius="10px" justify="space-between" align="center" bg="whiteAlpha.200">
-                  {/* Adjusted HStack for sentence-like flow */}
-                  <HStack spacing={1.5} alignItems="baseline" flex={1} w="full" overflowX="auto"> 
-                    <Text color="black" fontWeight="medium" fontSize="sm" whiteSpace="nowrap">{def.term} IS</Text>
-                    
-                    <Box>
+              .map((def: Definition, index: number) => {
+                // Determine if the definition consists only of non-text (icon) types
+                const isIconOnlyDefinition =
+                  def.typeCategory.type !== 'text' &&
+                  def.keyAttributes.type !== 'text' &&
+                  def.impactPurpose.type !== 'text';
+
+                // Conditionally set flex properties for each part of the definition
+                let typeFlex, attributesFlex, purposeFlex;
+
+                if (isIconOnlyDefinition) {
+                  // If all parts are icons, make them share the available space equally
+                  typeFlex = { base: 1 };
+                  attributesFlex = { base: 1 };
+                  purposeFlex = { base: 1 };
+                } else {
+                  // Otherwise, use existing logic: flexible for text, fixed for single icons
+                  typeFlex =
+                    def.typeCategory.type === 'text'
+                      ? { base: '1 1 auto', md: '1 1 auto' }
+                      : { base: '0 0 80px', md: '0 0 80px' };
+                  attributesFlex =
+                    def.keyAttributes.type === 'text'
+                      ? { base: '3 1 auto', md: '3 1 auto' }
+                      : { base: '0 0 80px', md: '0 0 80px' };
+                  purposeFlex =
+                    def.impactPurpose.type === 'text'
+                      ? { base: '2 1 auto', md: '2 1 auto' }
+                      : { base: '0 0 74px', md: '0 0 74px' };
+                }
+                
+                return (
+              <VStack
+                key={def.id || index}
+                align="stretch"
+                w="100%"
+                
+              >
+                {/* Main Flex container for one definition row, arranging boxes and like button */}
+                <Flex
+                
+                  direction="row"
+                  alignItems="stretch" // Stretch items to fill height if needed
+                  justifyContent="space-between"
+                  py={1} // User adjusted py={0}
+                  px={5} // User adjusted px={5}
+                  
+                  w="100%"
+                  bg="transparent"
+                  minH="120px" // Ensure a minimum height for the row
+                >
+                  {/* HStack for the series of bordered definition part boxes */}
+                  <HStack spacing={0} flexGrow={1} mr={3} alignItems="stretch" pr="25px" >
+                    {/* Box 1: typeCategory */}
+                    <Box 
+                      borderTopLeftRadius="10px"
+                      borderBottomLeftRadius="10px"
+                      borderRightWidth="0px" 
+                      borderTopWidth="0px" 
+                      borderBottomWidth="0px" 
+                      borderLeftWidth="0px" 
+                      borderColor="transparent" 
+                      bg="white"
+                      mr="4px"
+                      p={5} 
+                      display="flex" 
+                      alignItems="center" 
+                      justifyContent={def.typeCategory.type === 'text' ? "flex-start" : "center"}
+                      flex={typeFlex}
+                      minH="100%"
+                    >
                       <CardContentDisplay option={def.typeCategory} displayContext="savedList" />
                     </Box>
-                    
-                    <Text color="black" fontWeight="medium" fontSize="sm" whiteSpace="nowrap">that</Text>
-                    
-                    <Box>
+
+                    {/* Box 2: "THAT" */}
+                    <Box 
+                      borderTopWidth="0px" 
+                      borderBottomWidth="0px" 
+                      borderRightWidth="0px" 
+                      borderColor="white" 
+                      p={5}  
+                      bg="white"
+                      mr="4px"
+                      display="flex" 
+                      alignItems="center" 
+                      justifyContent="center" 
+                      flex={{ base: "0 0 80px", md: "0 0 80px" }} 
+                      minH="100%"
+                    >
+                      <Text fontSize="16px" fontWeight="medium" color="black">{T.textThat.toUpperCase()}</Text>
+                    </Box>
+
+                    {/* Box 3: keyAttributes */}
+                    <Box 
+                      borderTopWidth="0px" 
+                      borderBottomWidth="0px" 
+                      borderRightWidth="0px" 
+                      borderColor="white"  
+                      p={5}  
+                      bg="white"
+                      mr="4px"
+                      display="flex" 
+                      alignItems="center" 
+                      justifyContent={def.keyAttributes.type === 'text' ? "flex-start" : "center"} 
+                      flex={attributesFlex}
+                      minH="100%"
+                    >
                       <CardContentDisplay option={def.keyAttributes} displayContext="savedList" />
                     </Box>
-                    
-                    <Text color="black" fontWeight="medium" fontSize="sm" whiteSpace="nowrap">to</Text>
-                    
-                    <Box>
+
+                    {/* Box 4: "TO" */}
+                    <Box 
+                      borderTopWidth="0px" 
+                      borderBottomWidth="0px" 
+                      borderRightWidth="0px" 
+                      borderColor="white" 
+                      p={5}  
+                      bg="white"
+                      mr="4px"
+                      display="flex" 
+                      alignItems="center" 
+                      justifyContent="center" 
+                      flex={{ base: "0 0 80px", md: "0 0 80px" }} 
+                      minH="100%"
+                    >
+                      <Text fontSize="16px" fontWeight="medium" color="black">{T.textTo.toUpperCase()}</Text>
+                    </Box>
+
+                    {/* Box 5: impactPurpose */}
+                    <Box 
+                      borderTopRightRadius="10px"
+                      borderBottomRightRadius="10px"
+                      borderTopWidth="0px" 
+                      borderBottomWidth="0px" 
+                      borderRightWidth="0px" 
+                      borderColor="white"
+                      bg="white"
+                      mr="4px" 
+                      p={5}  
+                      display="flex" 
+                      alignItems="center" 
+                      justifyContent={def.impactPurpose.type === 'text' ? "flex-start" : "center"}
+                      flex={purposeFlex}
+                      minH="100%"
+                    >
                       <CardContentDisplay option={def.impactPurpose} displayContext="savedList" />
                     </Box>
                   </HStack>
-                  <IconButton aria-label="Like definition" icon={<ThumbsUp size={23} strokeWidth={2.5} />} variant="ghost" color="gray.300" _hover={{ bg: "whiteAlpha.400" }} size="sm" ml={2}/>
+                  
+                  {/* Like button: Remains to the right */}
+                  <IconButton 
+                    aria-label={T.labelLikeDefinition} 
+                    icon={<ThumbsUp size={23} strokeWidth={2.5} />} 
+                    bg="whiteAlpha.300"
+                    color="black"
+                    borderRadius="10px"
+                    onClick={() => handleLike(def.id!, def.likes || 0)}
+                    _hover={{ bg: "white", color: "black" }} 
+                    _active={{ bg: "white", color: "black" }} 
+                    size="md" 
+                    alignSelf="center"
+                  />
                 </Flex>
               </VStack>
-            ))}
+            )})}
           </VStack>
         )}
       </VStack>
@@ -2158,24 +2773,24 @@ function App() {
         <ModalOverlay />
         <ModalContent bg="white" color="black" borderRadius="xl" boxShadow="xl" mx={4}>
           <ModalHeader pt={8} pl={8} pr={8} fontSize="16px" fontWeight="bold" borderBottomWidth="0px" borderColor="white">
-            HOW TO USE THIS TOOL
+            {T.helpModalTitle} {/* TRANSLATED */}
           </ModalHeader>
-          <ModalBody pb={8} pl={8} pr={8}>
+          <ModalBody pb={6} pl={8} pr={8}>
             <VStack spacing={4} align="stretch">
               <Text fontSize="16" lineHeight="tall">
-                This tool helps you explore and define complex terms like "DEMOCRACY" in the context of culture and climate change.
+                {T.helpModalIntro} {/* TRANSLATED */}
               </Text>
               <Text fontSize="16" lineHeight="tall">
-                1. Use the <Text as="span" fontWeight="bold">arrow buttons</Text> beneath each of the three card decks to cycle through different card options.
+                {T.helpModalStep1} {/* TRANSLATED */}
               </Text>
               <Text fontSize="16" lineHeight="tall">
-                2. Press the <Text as="span" fontWeight="bold">plus button</Text> beneath each of the three card decks to add new card options.
+                {T.helpModalStep2} {/* TRANSLATED */}
               </Text>
               <Text fontSize="16" lineHeight="tall">
-                3. You can add new cards by A) writing a word or paragraph, B) drawing an picture, C) recording audio, or D) uploading an image.
+                {T.helpModalStep3} {/* TRANSLATED */}
               </Text>
               <Text fontSize="16" lineHeight="tall">
-                4. Once you're satisfied with a combination, you can click the <Text as="span" fontWeight="bold">save button</Text> on the right to add your new definition to the list below.
+                {T.helpModalStep4} {/* TRANSLATED */}
               </Text>
              
             </VStack>
