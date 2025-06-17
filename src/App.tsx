@@ -1,21 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Box, Heading, Flex, Text, Button, VStack, HStack, Spacer, IconButton, InputGroup, InputLeftElement, Input, Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure, Textarea, Image as ChakraImage, Popover, PopoverTrigger, PopoverContent, PopoverArrow, PopoverCloseButton, PopoverHeader, PopoverBody, Menu, MenuButton, MenuList, MenuItem, Circle, Progress } from '@chakra-ui/react';
 // Import Feather Icons
-import { HelpCircle, Menu as MenuIconFeather, ChevronLeft, ChevronRight, Shuffle, Save, ChevronUp, Plus, ChevronDown, Search, MessageSquare, Link, ThumbsUp, Copy, Type, Edit3, Mic, Image, X, Check, Trash2, StopCircle, Upload, AlignCenter } from 'react-feather';
+import { HelpCircle, Menu as MenuIconFeather, ChevronLeft, ChevronRight, Shuffle, Save, ChevronUp, Plus, ChevronDown, Search, MessageSquare, Link, ThumbsUp, Copy, Type, Edit3, Mic, Image, X, Check, Trash2, StopCircle, Upload, AlignCenter, RefreshCw } from 'react-feather';
 // Remove or comment out Chakra UI icons if no longer needed, or keep if some are still used elsewhere
 // import { ChevronLeftIcon, ChevronRightIcon, QuestionOutlineIcon, HamburgerIcon, AddIcon, ChevronUpIcon, ChevronDownIcon, /* ExternalLinkIcon, */ CopyIcon, SearchIcon, TriangleDownIcon, ChatIcon, LinkIcon, StarIcon, RepeatIcon } from '@chakra-ui/icons';
 import { db } from './firebase/firebaseConfig'; // Import db
-import { collection, doc, getDoc, getDocs, addDoc, serverTimestamp, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'; // Import Firestore functions (ensure updateDoc is here)
+import { collection, doc, getDoc, getDocs, addDoc, serverTimestamp, onSnapshot, orderBy, query, updateDoc, setDoc, Transaction, runTransaction, writeBatch } from 'firebase/firestore'; // Import Firestore functions (ensure updateDoc is here)
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // Firebase Storage
-import type { px } from 'framer-motion';
+import { motion } from 'framer-motion';
 import imageCompression from 'browser-image-compression';
+import type { CardOptionValue, Definition, TermData, LanguageSpecificTermData } from './types';
+import { CardStack } from './components/CardStack';
 
 // --- Data Types (good practice to define shapes) ---
+/*
 interface CardOptionValue {
   type: 'text' | 'drawing' | 'audio' | 'image';
   content: string; // Text content, base64 data URL for drawing/image, or audio file URL/reference
   waveformData?: number[]; // Optional: pre-computed waveform data for audio
   id?: string; // Optional unique ID for options, useful for keys and comparisons
+  language?: 'en' | 'de'; // ADDED: Language of the original content
 }
 
 interface Definition {
@@ -47,6 +51,7 @@ interface LanguageSpecificTermData {
     impactPurpose: CardOptionValue;
   };
 }
+*/
 
 // --- Initial Hardcoded Options (will be replaced by Firestore data) ---
 // const initialTypeCategoryOptions: CardOption[] = [ ... ]; // Remove or keep for fallback
@@ -64,18 +69,18 @@ const allTermsData: TermData[] = [
       phonetic: "[əˈsɛmbli]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: 'Collection of people, representative group of citizens', id: 'default-assembly-type-en' },
-        keyAttributes: { type: 'text', content: 'Gathered together for a common purpose', id: 'default-assembly-attributes-en' },
-        impactPurpose: { type: 'text', content: 'Deliberate, make recommendations and support policy development', id: 'default-assembly-impact-en' }
+        keyAttributes: { type: 'text', content: 'gathers together for a common purpose', id: 'default-assembly-attributes-en' },
+        impactPurpose: { type: 'text', content: 'deliberate, make recommendations and support policy development', id: 'default-assembly-impact-en' }
       }
     },
     de: {
-      term: "VERSAMMLUNG",
+      term: "BÜRGERRAT",
       etymology: "Das Wort Versammlung kommt vom Althochdeutschen...",
-      phonetic: "de: [əˈsɛmbli]", // ADDED German phonetic
+      phonetic: "[ˈbʏʁɡɐˌʁaːt]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: 'GERMAN: Collection of people, representative group of citizens', id: 'default-assembly-type-de' },
-        keyAttributes: { type: 'text', content: 'GERMAN: Gathered together for a common purpose', id: 'default-assembly-attributes-de' },
-        impactPurpose: { type: 'text', content: 'GERMAN: Deliberate, make recommendations and support policy development', id: 'default-assembly-impact-de' }
+        typeCategory: { type: 'text', content: 'Versammlung von Personen, repräsentative Gruppe von Bürger:innen', id: 'default-assembly-type-de' },
+        keyAttributes: { type: 'text', content: 'sich für ein gemeinsames Ziel versammeln', id: 'default-assembly-attributes-de' },
+        impactPurpose: { type: 'text', content: 'Überlegungen anzustellen, Empfehlungen abzugeben und die Entwicklung von Strategien zu unterstützen', id: 'default-assembly-impact-de' }
       }
     }
   },
@@ -87,18 +92,18 @@ const allTermsData: TermData[] = [
       phonetic: "[əˈsɛmbli ˈmɛmbəz]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Participants of a citizens' assembly", id: 'default-assemblymembers-type-en' },
-        keyAttributes: { type: 'text', content: "Randomly selected members of the public representation of a population of the subject area", id: 'default-assemblymembers-attributes-en' },
-        impactPurpose: { type: 'text', content: "Legitimise the decision making process", id: 'default-assemblymembers-impact-en' }
+        keyAttributes: { type: 'text', content: "are randomly selected members of the public representative of a population of an area", id: 'default-assemblymembers-attributes-en' },
+        impactPurpose: { type: 'text', content: "legitimise the decision making process", id: 'default-assemblymembers-impact-en' }
       }
     },
     de: {
-      term: "VERSAMMLUNGSMITGLIEDER",
+      term: "BÜRGERRATSMITGLIEDER",
       etymology: "GERMAN ETYMOLOGY FOR ASSEMBLY MEMBERS",
-      phonetic: "de: [əˈsɛmbli ˈmɛmbəz]", // ADDED German phonetic
+      phonetic: "[ˈbʏʁɡɐˌʁaːtsˌmɪtˌɡliːdɐ]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Participants of a citizens' assembly", id: 'default-assemblymembers-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Randomly selected members of the public representation of a population of the subject area", id: 'default-assemblymembers-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Legitimise the decision making process", id: 'default-assemblymembers-impact-de' }
+        typeCategory: { type: 'text', content: "Teilnehmende eines Bürgerrats", id: 'default-assemblymembers-type-de' },
+        keyAttributes: { type: 'text', content: "nach dem Zufallsprinzip ausgewählte Mitglieder der Öffentlichkeit sind, die die Bevölkerung des betreffenden Gebiets repräsentieren", id: 'default-assemblymembers-attributes-de' },
+        impactPurpose: { type: 'text', content: "zur Legitimierung des Entscheidungsprozesses beizutragen", id: 'default-assemblymembers-impact-de' }
       }
     }
   },
@@ -110,18 +115,18 @@ const allTermsData: TermData[] = [
       phonetic: "[ˈsɪtɪzn̩ ˈdʒʊəriz]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Deliberative Mini-Public", id: 'default-citizenjuries-type-en' },
-        keyAttributes: { type: 'text', content: "Typically comprise 10 to 35 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-citizenjuries-attributes-en' },
-        impactPurpose: { type: 'text', content: "Legitimise and provide knowledge for policy making", id: 'default-citizenjuries-impact-en' }
+        keyAttributes: { type: 'text', content: "typically comprise 10 to 35 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-citizenjuries-attributes-en' },
+        impactPurpose: { type: 'text', content: "legitimise and provide knowledge for policy making", id: 'default-citizenjuries-impact-en' }
       }
     },
     de: {
-      term: "BÜRGERGUTACHTEN",
+      term: "BÜRGERJURIES",
       etymology: "GERMAN ETYMOLOGY FOR CITIZEN JURIES",
-      phonetic: "de: [ˈsɪtɪzn̩ ˈdʒʊəriz]", // ADDED German phonetic
+      phonetic: "[ˈbʏʁɡɐˌjuːʁiz]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Deliberative Mini-Public", id: 'default-citizenjuries-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Typically comprise 10 to 35 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-citizenjuries-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Legitimise and provide knowledge for policy making", id: 'default-citizenjuries-impact-de' }
+        typeCategory: { type: 'text', content: "Deliberative Mini-Öffentlichkeiten", id: 'default-citizenjuries-type-de' },
+        keyAttributes: { type: 'text', content: "in der Regel aus 10 bis 35 zufällig ausgewählten Bürger:innen bestehen, die sich über ein Thema informieren, darüber beraten und Entscheidungen treffen", id: 'default-citizenjuries-attributes-de' },
+        impactPurpose: { type: 'text', content: "den Prozess zu legitimieren und Wissen für die Politikgestaltung bereitzustellen", id: 'default-citizenjuries-impact-de' }
       }
     }
   },
@@ -133,18 +138,18 @@ const allTermsData: TermData[] = [
       phonetic: "[ˈsɪtɪzn̩z]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Members of the public; legally recognised members of a nation or political community", id: 'default-citizens-type-en' },
-        keyAttributes: { type: 'text', content: "Are participatory members of a political community and are granted certain rights and privileges", id: 'default-citizens-attributes-en' },
-        impactPurpose: { type: 'text', content: "Live in accordance with the laws and obligations of citizenship", id: 'default-citizens-impact-en' }
+        keyAttributes: { type: 'text', content: "are participatory members of a political community and are granted certain rights and privileges", id: 'default-citizens-attributes-en' },
+        impactPurpose: { type: 'text', content: "live in accordance with the laws and obligations of citizenship", id: 'default-citizens-impact-en' }
       }
     },
     de: {
-      term: "BÜRGER",
+      term: "STAATSBÜRGER:INNEN",
       etymology: "GERMAN ETYMOLOGY FOR CITIZENS",
-      phonetic: "de: [ˈsɪtɪzn̩z]", // ADDED German phonetic
+      phonetic: "[ˈʃtaːtsˌbʏʁɡɐˌɪnən]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Members of the public; legally recognised members of a nation or political community", id: 'default-citizens-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Are participatory members of a political community and are granted certain rights and privileges", id: 'default-citizens-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Live in accordance with the laws and obligations of citizenship", id: 'default-citizens-impact-de' }
+        typeCategory: { type: 'text', content: "Partizipative Mitglieder einer Öffentlichkeit, einer Nation oder einer politischen Gemeinschaft", id: 'default-citizens-type-de' },
+        keyAttributes: { type: 'text', content: "bestimmte Rechte, Privilegien und Pflichten haben", id: 'default-citizens-attributes-de' },
+        impactPurpose: { type: 'text', content: "im Einklang mit den Gesetzen und Pflichten der Gemeinschaft zu leben", id: 'default-citizens-impact-de' }
       }
     }
   },
@@ -156,18 +161,18 @@ const allTermsData: TermData[] = [
       phonetic: "[ˈklaɪmət əˈsɛmbli]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Deliberative Mini-Public", id: 'default-climateassembly-type-en' },
-        keyAttributes: { type: 'text', content: "Typically comprise 50 to 150 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-climateassembly-attributes-en' },
-        impactPurpose: { type: 'text', content: "Legitimise and provide knowledge for policy making", id: 'default-climateassembly-impact-en' }
+        keyAttributes: { type: 'text', content: "typically comprise 50 to 150 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-climateassembly-attributes-en' },
+        impactPurpose: { type: 'text', content: "legitimise and provide knowledge for policy making", id: 'default-climateassembly-impact-en' }
       }
     },
     de: {
-      term: "KLIMAVERSAMMLUNG",
+      term: "KLIMARAT",
       etymology: "GERMAN ETYMOLOGY FOR CLIMATE ASSEMBLY",
-      phonetic: "de: [ˈklaɪmət əˈsɛmbli]", // ADDED German phonetic
+      phonetic: "[ˈkliːmaˌʁaːt]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Deliberative Mini-Public", id: 'default-climateassembly-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Typically comprise 50 to 150 randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-climateassembly-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Legitimise and provide knowledge for policy making", id: 'default-climateassembly-impact-de' }
+        typeCategory: { type: 'text', content: "Deliberative Mini-Öffentlichkeiten", id: 'default-climateassembly-type-de' },
+        keyAttributes: { type: 'text', content: "in der Regel aus 50 bis 150 zufällig ausgewählte Bürger:innen bestehen, die sich über ein Thema informieren, darüber beraten und Entscheidungen treffen sollen", id: 'default-climateassembly-attributes-de' },
+        impactPurpose: { type: 'text', content: "Wissen für die Politikgestaltung bereitzustellen und den Prozess der Entscheidungsfindung zu legitimieren", id: 'default-climateassembly-impact-de' }
       }
     }
   },
@@ -178,19 +183,19 @@ const allTermsData: TermData[] = [
       etymology: "Combines 'decision' (from Latin 'decidere', 'to cut off, determine') and 'making' (from Old English 'macian', 'to make, form').",
       phonetic: "[dɪˈsɪʒənˌmeɪkɪŋ]",
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "Process of making choices and selecting course of action", id: 'default-decisionmaking-type-en' },
-        keyAttributes: { type: 'text', content: "Develop methods and procedures through which governments make policies, laws and regulations", id: 'default-decisionmaking-attributes-en' },
-        impactPurpose: { type: 'text', content: "Maintain balance between power and the population's interests", id: 'default-decisionmaking-impact-en' }
+        typeCategory: { type: 'text', content: "Process of making choices and selecting a course of action", id: 'default-decisionmaking-type-en' },
+        keyAttributes: { type: 'text', content: "develops methods and procedures through which governments make policies, laws and regulations", id: 'default-decisionmaking-attributes-en' },
+        impactPurpose: { type: 'text', content: "maintain balance between power and the population's interests", id: 'default-decisionmaking-impact-en' }
       }
     },
     de: {
-      term: "ENTSCHEIDUNGSFINDUNG",
+      term: "ENTSCHEIDUNGSPROZESSE",
       etymology: "GERMAN ETYMOLOGY FOR DECISION-MAKING",
-      phonetic: "de: [dɪˈsɪʒənˌmeɪkɪŋ]", // ADDED German phonetic
+      phonetic: "[ɛntˈʃaɪdʊŋsˌpʁoːtsɛsə]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Process of making choices and selecting course of action", id: 'default-decisionmaking-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Develop methods and procedures through which governments make policies, laws and regulations", id: 'default-decisionmaking-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Maintain balance between power and the population's interests", id: 'default-decisionmaking-impact-de' }
+        typeCategory: { type: 'text', content: "Wahl der Vorgehensweise", id: 'default-decisionmaking-type-de' },
+        keyAttributes: { type: 'text', content: "zur Entwicklung von Methoden und Verfahren dient, mit denen Regierungen Politiken, Gesetze und Vorschriften erlassen", id: 'default-decisionmaking-attributes-de' },
+        impactPurpose: { type: 'text', content: "ein Gleichgewicht zwischen institutioneller Macht und den Interessen der Bevölkerung zu gewährleisten", id: 'default-decisionmaking-impact-de' }
       }
     }
   },
@@ -202,18 +207,18 @@ const allTermsData: TermData[] = [
       phonetic: "[dɪˌlɪbəˈreɪʃən]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "An approach to decision making", id: 'default-deliberation-type-en' },
-        keyAttributes: { type: 'text', content: "Participants justify what they want with reasons and listen to each other's justifications respectfully and with an open mind", id: 'default-deliberation-attributes-en' },
-        impactPurpose: { type: 'text', content: "Enable inclusive and reasoned decision making that respects and includes a variety of voices and perspectives to be heard", id: 'default-deliberation-impact-en' }
+        keyAttributes: { type: 'text', content: "comprises participants justifying what they want by providing reasons and listening to each other's justifications respectfully and with an open mind", id: 'default-deliberation-attributes-en' },
+        impactPurpose: { type: 'text', content: "enable inclusive and reasoned decision making that respects and includes a variety of voices and perspectives to be heard", id: 'default-deliberation-impact-en' }
       }
     },
     de: {
-      term: "BERATUNG",
+      term: "DELIBERATION",
       etymology: "GERMAN ETYMOLOGY FOR DELIBERATION",
-      phonetic: "de: [dɪˌlɪbəˈreɪʃən]", // ADDED German phonetic
+      phonetic: "[dɛlibeʁaˈt͡si̯oːn]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: An approach to decision making", id: 'default-deliberation-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Participants justify what they want with reasons and listen to each other's justifications respectfully and with an open mind", id: 'default-deliberation-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Enable inclusive and reasoned decision making that respects and includes a variety of voices and perspectives to be heard", id: 'default-deliberation-impact-de' }
+        typeCategory: { type: 'text', content: "Prozess der Entscheidungsfindung", id: 'default-deliberation-type-de' },
+        keyAttributes: { type: 'text', content: "es Teilnehmenden erlaubt, ihre Gedanken, Ideen und Wünsche zu begründen und die Begründungen anderer respektvoll und unvoreingenommen anzuhören", id: 'default-deliberation-attributes-de' },
+        impactPurpose: { type: 'text', content: "eine integrative Entscheidungsfindung zu ermöglichen, die eine Vielzahl von Stimmen und Perspektiven respektiert und berücksichtigt", id: 'default-deliberation-impact-de' }
       }
     }
   },
@@ -225,18 +230,18 @@ const allTermsData: TermData[] = [
       phonetic: "[dɪˈlɪbərətɪv ˈmɪni ˈpʌblɪks]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Democratic innovation", id: 'default-deliberativeminipublics-type-en' },
-        keyAttributes: { type: 'text', content: "Process involving randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-deliberativeminipublics-attributes-en' },
-        impactPurpose: { type: 'text', content: "Legitimise and provide knowledge for policy making", id: 'default-deliberativeminipublics-impact-en' }
+        keyAttributes: { type: 'text', content: "involves randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-deliberativeminipublics-attributes-en' },
+        impactPurpose: { type: 'text', content: "legitimise and provide knowledge for policy making", id: 'default-deliberativeminipublics-impact-en' }
       }
     },
     de: {
-      term: "BERATENDE MINI-PUBLICS",
+      term: "DELIBERATIVE MINI-ÖFFENTLICHKEITEN",
       etymology: "GERMAN ETYMOLOGY FOR DELIBERATIVE MINI-PUBLICS",
-      phonetic: "de: [dɪˈlɪbərətɪv ˈmɪni ˈpʌblɪks]", // ADDED German phonetic
+      phonetic: "[dɛlibeʁaˈtiːvə ˈmɪni ˌœfn̩tlɪçkaɪtn̩]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Democratic innovation", id: 'default-deliberativeminipublics-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Process involving randomly selected citizens to learn about, deliberate on and make decisions about a topic", id: 'default-deliberativeminipublics-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Legitimise and provide knowledge for policy making", id: 'default-deliberativeminipublics-impact-de' }
+        typeCategory: { type: 'text', content: "Demokratische Intervention", id: 'default-deliberativeminipublics-type-de' },
+        keyAttributes: { type: 'text', content: "auf einem partizipativen Verfahren beruht, bei dem eine zufällig ausgewählte Gruppe von Bürger:innen über ein bestimmtes Thema gemeinsam diskutiert und Empfehlungen oder Lösungsansätze erarbeitet", id: 'default-deliberativeminipublics-attributes-de' },
+        impactPurpose: { type: 'text', content: "Wissen für die Politikgestaltung bereitzustellen und den Prozess der Entscheidungsfindung zu legitimieren", id: 'default-deliberativeminipublics-impact-de' }
       }
     }
   },
@@ -248,18 +253,18 @@ const allTermsData: TermData[] = [
       phonetic: "[dɪˈmɒkrəsi]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "System or rule of government by all eligible members of the state", id: 'default-democracy-type-en' },
-        keyAttributes: { type: 'text', content: "Depends on the will of the people either directly or through elected representatives", id: 'default-democracy-attributes-en' },
-        impactPurpose: { type: 'text', content: "Provide an environment for effective rule by the people for the people and effective realization of human rights", id: 'default-democracy-impact-en' }
+        keyAttributes: { type: 'text', content: "depends on the will of the people either directly or through elected representatives", id: 'default-democracy-attributes-en' },
+        impactPurpose: { type: 'text', content: "provide an environment for effective rule by the people for the people and effective realisation of human rights", id: 'default-democracy-impact-en' }
       }
     },
     de: {
       term: "DEMOKRATIE",
       etymology: "GERMAN ETYMOLOGY FOR DEMOCRACY",
-      phonetic: "de: [dɪˈmɒkrəsi]", // ADDED German phonetic
+      phonetic: "[dɛmoˈkʁaːtsi̯ə]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: System or rule of government by all eligible members of the state", id: 'default-democracy-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Depends on the will of the people either directly or through elected representatives", id: 'default-democracy-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Provide an environment for effective rule by the people for the people and effective realization of human rights", id: 'default-democracy-impact-de' }
+        typeCategory: { type: 'text', content: "Staatsform", id: 'default-democracy-type-de' },
+        keyAttributes: { type: 'text', content: "auf der Beteiligung der Öffentlichkeit beruht", id: 'default-democracy-attributes-de' },
+        impactPurpose: { type: 'text', content: "eine wirksame Herrschaft des Volkes für das Volk zu ermöglichen und Menschenrechte zu verwirklichen", id: 'default-democracy-impact-de' }
       }
     }
   },
@@ -271,18 +276,18 @@ const allTermsData: TermData[] = [
       phonetic: "[ˈɛvɪdəns]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Input of a deliberative mini-public", id: 'default-evidence-type-en' },
-        keyAttributes: { type: 'text', content: "Presented by expert witnesses or advocates during the learning phase of a citizens' assembly", id: 'default-evidence-attributes-en' },
-        impactPurpose: { type: 'text', content: "Enable informed deliberation and decision making", id: 'default-evidence-impact-en' }
+        keyAttributes: { type: 'text', content: "that is presented by expert witnesses or advocates during the learning phase of a citizens' assembly", id: 'default-evidence-attributes-en' },
+        impactPurpose: { type: 'text', content: "enable informed deliberation and decision making", id: 'default-evidence-impact-en' }
       }
     },
     de: {
-      term: "BEWEISE",
+      term: "NACHWEISE",
       etymology: "GERMAN ETYMOLOGY FOR EVIDENCE",
-      phonetic: "de: [ˈɛvɪdəns]", // ADDED German phonetic
+      phonetic: "[ˈnaːxvaɪzə]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Input of a deliberative mini-public", id: 'default-evidence-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Presented by expert witnesses or advocates during the learning phase of a citizens' assembly", id: 'default-evidence-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Enable informed deliberation and decision making", id: 'default-evidence-impact-de' }
+        typeCategory: { type: 'text', content: "Eingebrachte Inputs in deliberativen Mini-Öffentlichkeiten", id: 'default-evidence-type-de' },
+        keyAttributes: { type: 'text', content: "von Sachverständigen oder Anwälten während der Lernphase einer Bürgerversammlung präsentiert werden", id: 'default-evidence-attributes-de' },
+        impactPurpose: { type: 'text', content: "fundierte Beratungen und Entscheidungsfindungen zu ermöglichen", id: 'default-evidence-impact-de' }
       }
     }
   },
@@ -294,18 +299,18 @@ const allTermsData: TermData[] = [
       phonetic: "[ˈɛkspɜːts]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "People selected by the governing body to present evidence at a deliberative mini-public", id: 'default-experts-type-en' },
-        keyAttributes: { type: 'text', content: "Have expertise in a specific area of the topic; typically, experts with a range of perspectives are selected", id: 'default-experts-attributes-en' },
-        impactPurpose: { type: 'text', content: "To enable the 'learning' part of the process, where assembly member learn about the subject topic before deliberating on and making decisions about it", id: 'default-experts-impact-en' }
+        keyAttributes: { type: 'text', content: "have expertise in a specific area of the topic; typically, experts with a range of perspectives are selected", id: 'default-experts-attributes-en' },
+        impactPurpose: { type: 'text', content: "to enable the 'learning' part of the process, where assembly member learn about the subject topic before deliberating on and making decisions about it", id: 'default-experts-impact-en' }
       }
     },
     de: {
-      term: "EXPERTEN",
+      term: "EXPERT:INNEN",
       etymology: "GERMAN ETYMOLOGY FOR EXPERTS",
-      phonetic: "de: [ˈɛkspɜːts]", // ADDED German phonetic
+      phonetic: "[ɛkspɛʁtˌɪnən]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: People selected by the governing body to present evidence at a deliberative mini-public", id: 'default-experts-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Have expertise in a specific area of the topic; typically, experts with a range of perspectives are selected", id: 'default-experts-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: To enable the 'learning' part of the process, where assembly member learn about the subject topic before deliberating on and making decisions about it", id: 'default-experts-impact-de' }
+        typeCategory: { type: 'text', content: "Vom Leitungsorgan ausgewählte Personen", id: 'default-experts-type-de' },
+        keyAttributes: { type: 'text', content: "über Fachwissen zu einem bestimmten Themengebiet verfügen und jenes Wissen in deliberativen Mini-Öffentlichkeiten präsentieren", id: 'default-experts-attributes-de' },
+        impactPurpose: { type: 'text', content: "den 'Lern'-Teil des Prozesses zu ermöglichen, bei dem sich die Mitglieder der Versammlung über das Thema informieren, bevor sie darüber beraten und Entscheidungen treffen", id: 'default-experts-impact-de' }
       }
     }
   },
@@ -317,18 +322,18 @@ const allTermsData: TermData[] = [
       phonetic: "[fəˈsɪlɪteɪtəz]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "People with expertise in citizen deliberation", id: 'default-facilitators-type-en' },
-        keyAttributes: { type: 'text', content: "Guide the assembly process ensuring all voices are heard", id: 'default-facilitators-attributes-en' },
-        impactPurpose: { type: 'text', content: "Help citizens understand issues, discuss thoughtfully and respectfully and make informed decisions", id: 'default-facilitators-impact-en' }
+        keyAttributes: { type: 'text', content: "manage small group deliberation and decision making during a mini-public, ensuring all voices are heard", id: 'default-facilitators-attributes-en' },
+        impactPurpose: { type: 'text', content: "help the participants understand issues, discuss thoughtfully and respectfully and make informed decisions", id: 'default-facilitators-impact-en' }
       }
     },
     de: {
-      term: "MODERATOREN",
+      term: "VERMITTLER:INNEN",
       etymology: "GERMAN ETYMOLOGY FOR FACILITATORS",
-      phonetic: "de: [fəˈsɪlɪteɪtəz]", // ADDED German phonetic
+      phonetic: "[fɛɐ̯ˈmɪtlɐˌɪnən]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: People with expertise in citizen deliberation", id: 'default-facilitators-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Guide the assembly process ensuring all voices are heard", id: 'default-facilitators-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Help citizens understand issues, discuss thoughtfully and respectfully and make informed decisions", id: 'default-facilitators-impact-de' }
+        typeCategory: { type: 'text', content: "Personen mit Erfahrung in Bürgerversammlungen", id: 'default-facilitators-type-de' },
+        keyAttributes: { type: 'text', content: "den Versammlungsprozess leiten und sicherstellen, dass alle Stimmen gehört werden", id: 'default-facilitators-attributes-de' },
+        impactPurpose: { type: 'text', content: "den Bürger:innen zu helfen, Themen zu verstehen, nachdenklich und respektvoll zu diskutieren und fundierte Entscheidungen zu treffen", id: 'default-facilitators-impact-de' }
       }
     }
   },
@@ -340,18 +345,18 @@ const allTermsData: TermData[] = [
       phonetic: "[ˈɡʌvənɪŋ ˈbɒdi]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Organisation or people that make decisions about the design and implementation of a deliberative mini-public", id: 'default-governingbody-type-en' },
-        keyAttributes: { type: 'text', content: "Typically have expertise in the topic or participatory and deliberative methods", id: 'default-governingbody-attributes-en' },
-        impactPurpose: { type: 'text', content: "Ensure the design and implementation of the process adheres to best practice and fulfils the remit set by the commissioning organisation", id: 'default-governingbody-impact-en' }
+        keyAttributes: { type: 'text', content: "typically have expertise in the topic or participatory and deliberative methods", id: 'default-governingbody-attributes-en' },
+        impactPurpose: { type: 'text', content: "ensure the design and implementation of the process adheres to best practice and fulfils the remit set by the commissioning organisation", id: 'default-governingbody-impact-en' }
       }
     },
     de: {
-      term: "LEITUNGSGREMIUM",
+      term: "LEITUNGSORGAN",
       etymology: "GERMAN ETYMOLOGY FOR GOVERNING BODY",
-      phonetic: "de: [ˈɡʌvənɪŋ ˈbɒdi]", // ADDED German phonetic
+      phonetic: "[ˈlaɪtʊŋsˌɔʁɡaːn]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Organisation or people that make decisions about the design and implementation of a deliberative mini-public", id: 'default-governingbody-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Typically have expertise in the topic or participatory and deliberative methods", id: 'default-governingbody-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Ensure the design and implementation of the process adheres to best practice and fulfils the remit set by the commissioning organisation", id: 'default-governingbody-impact-de' }
+        typeCategory: { type: 'text', content: "Organisation oder Personen", id: 'default-governingbody-type-de' },
+        keyAttributes: { type: 'text', content: "die Entscheidungen über die Gestaltung und Umsetzung einer deliberativen Mini-Öffentlichkeit treffen und in der Regel über Fachwissen zum Thema oder zu partizipativen und deliberativen Methoden verfügen", id: 'default-governingbody-attributes-de' },
+        impactPurpose: { type: 'text', content: "sicherzustellen, dass die Gestaltung und Umsetzung des Prozesses den bewährten Verfahren entspricht und den von der auftraggebenden Organisation festgelegten Auftrag erfüllt", id: 'default-governingbody-impact-de' }
       }
     }
   },
@@ -363,18 +368,18 @@ const allTermsData: TermData[] = [
       phonetic: "[pɑːˌtɪsɪˈpeɪʃən]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "An approach to governance", id: 'default-participation-type-en' },
-        keyAttributes: { type: 'text', content: "Enables citizens to individually or collectively contribute to decision making", id: 'default-participation-attributes-en' },
-        impactPurpose: { type: 'text', content: "Improve and legitimise decision making", id: 'default-participation-impact-en' }
+        keyAttributes: { type: 'text', content: "enables citizens to individually or collectively contribute to decision making", id: 'default-participation-attributes-en' },
+        impactPurpose: { type: 'text', content: "improve and legitimise decision making", id: 'default-participation-impact-en' }
       }
     },
     de: {
-      term: "TEILNAHME",
+      term: "PARTIZIPATION",
       etymology: "GERMAN ETYMOLOGY FOR PARTICIPATION",
-      phonetic: "de: [pɑːˌtɪsɪˈpeɪʃən]", // ADDED German phonetic
+      phonetic: "[paʁtitsiˈpaːt͡si̯oːn]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: An approach to governance", id: 'default-participation-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Enables citizens to individually or collectively contribute to decision making", id: 'default-participation-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Improve and legitimise decision making", id: 'default-participation-impact-de' }
+        typeCategory: { type: 'text', content: "Ein Regierungsansatz", id: 'default-participation-type-de' },
+        keyAttributes: { type: 'text', content: "es den Bürger:innen ermöglicht, individuell oder kollektiv zur Entscheidungsfindung beizutragen", id: 'default-participation-attributes-de' },
+        impactPurpose: { type: 'text', content: "den Prozess der Entscheidungsfindung zu legitimieren", id: 'default-participation-impact-de' }
       }
     }
   },
@@ -386,18 +391,18 @@ const allTermsData: TermData[] = [
       phonetic: "[ˈpɒləsi]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Tool of governance", id: 'default-policy-type-en' },
-        keyAttributes: { type: 'text', content: "Sets out the strategic direction of the governing body", id: 'default-policy-attributes-en' },
-        impactPurpose: { type: 'text', content: "Communicate vision and guide action", id: 'default-policy-impact-en' }
+        keyAttributes: { type: 'text', content: "sets out the strategic direction of the governing body", id: 'default-policy-attributes-en' },
+        impactPurpose: { type: 'text', content: "communicate vision and guide action", id: 'default-policy-impact-en' }
       }
     },
     de: {
-      term: "RICHTLINIE",
+      term: "POLITISCHE MAßNAHMEN & ZIELE",
       etymology: "GERMAN ETYMOLOGY FOR POLICY",
-      phonetic: "de: [ˈpɒləsi]", // ADDED German phonetic
+      phonetic: "[poliˈtɪʃə ˈmaːsˌnaːmən ʊnt ˈtsiːlə]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Tool of governance", id: 'default-policy-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Sets out the strategic direction of the governing body", id: 'default-policy-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Communicate vision and guide action", id: 'default-policy-impact-de' }
+        typeCategory: { type: 'text', content: "Instrument des Regierens", id: 'default-policy-type-de' },
+        keyAttributes: { type: 'text', content: "die strategische Ausrichtung des Leitungsgremiums festlegt", id: 'default-policy-attributes-de' },
+        impactPurpose: { type: 'text', content: "Visionen zu vermitteln und Maßnahmen anzuleiten", id: 'default-policy-impact-de' }
       }
     }
   },
@@ -415,12 +420,12 @@ const allTermsData: TermData[] = [
     },
     de: {
       term: "POLITIK",
-      etymology: "IHRE DEUTSCHE ETYMOLOGIE HIER",
-      phonetic: "de: [ˈpɒlɪtɪks]", // ADDED German phonetic
+      etymology: "GERMAN ETYMOLOGY FOR POLITICS",
+      phonetic: "[poliˈtiːk]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Activities of a Government", id: 'default-politics-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: depend on power relations and relationships between people", id: 'default-politics-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: prioritise competing interests and enable decisions to be made", id: 'default-politics-impact-de' }
+        typeCategory: { type: 'text', content: "Aktivitäten einer Regierung", id: 'default-politics-type-de' },
+        keyAttributes: { type: 'text', content: "von den Machtverhältnissen und Beziehungen zwischen den Menschen abhängen", id: 'default-politics-attributes-de' },
+        impactPurpose: { type: 'text', content: "konkurrierende Interessen zu priorisieren und Entscheidungen zu ermöglichen", id: 'default-politics-impact-de' }
       }
     }
   },
@@ -429,21 +434,21 @@ const allTermsData: TermData[] = [
     en: {
       term: "POST ASSEMBLY",
       etymology: "Post assembly combines 'post-' (Latin *post*, 'after') with 'assembly' (Latin *assimulare*, 'to gather together'), meaning 'after the gathering'.",
-      phonetic: "[pəʊst əˈsɛmbli]",
+      phonetic: "[poʊst əˈsɛmbli]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: "Stage / phase of a citizens' assembly process", id: 'default-postassembly-type-en' },
-        keyAttributes: { type: 'text', content: "Translation of outputs into policy and action", id: 'default-postassembly-attributes-en' },
-        impactPurpose: { type: 'text', content: "Determine what happens next", id: 'default-postassembly-impact-en' }
+        keyAttributes: { type: 'text', content: "occurs after the formal process of learning, deliberation and decision making, when an assembly's outputs (e.g. recommendations or proposals) are handed back to the comissioning organisation for implementation", id: 'default-postassembly-attributes-en' },
+        impactPurpose: { type: 'text', content: "determine what happens next", id: 'default-postassembly-impact-en' }
       }
     },
     de: {
-      term: "NACH DER VERSAMMLUNG",
-      etymology: "IHRE DEUTSCHE ETYMOLOGIE HIER",
-      phonetic: "de: [pəʊst əˈsɛmbli]", // ADDED German phonetic
+      term: "POST ASSEMBLY",
+      etymology: "GERMAN ETYMOLOGY FOR POST ASSEMBLY",
+      phonetic: "[poʊst əˈsɛmbli]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: "GERMAN: Stage / phase of a citizens' assembly process", id: 'default-postassembly-type-de' },
-        keyAttributes: { type: 'text', content: "GERMAN: Translation of outputs into policy and action", id: 'default-postassembly-attributes-de' },
-        impactPurpose: { type: 'text', content: "GERMAN: Determine what happens next", id: 'default-postassembly-impact-de' }
+        typeCategory: { type: 'text', content: "Stufe / Phase eines Bürgerbeteiligungsprozesses", id: 'default-postassembly-type-de' },
+        keyAttributes: { type: 'text', content: "zur Umsetzung der Ergebnisse in Politik und Maßnahmen dient", id: 'default-postassembly-attributes-de' },
+        impactPurpose: { type: 'text', content: "festzulegen, was als nächstes geschieht", id: 'default-postassembly-impact-de' }
       }
     }
   },
@@ -455,18 +460,18 @@ const allTermsData: TermData[] = [
       phonetic: "[ˌrɛkəmɛnˈdeɪʃənz]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: 'Output from a deliberative mini-public', id: 'default-recommendations-type-en' },
-        keyAttributes: { type: 'text', content: 'Summarise the key decisions made by the assembly members', id: 'default-recommendations-attributes-en' },
-        impactPurpose: { type: 'text', content: 'Inform policy makers of an assembly\'s decisions and proposals for policy implementation', id: 'default-recommendations-impact-en' }
+        keyAttributes: { type: 'text', content: 'summarise the key decisions made by the assembly members', id: 'default-recommendations-attributes-en' },
+        impactPurpose: { type: 'text', content: 'inform policy makers of an assembly\'s decisions and proposals for policy implementation', id: 'default-recommendations-impact-en' }
       }
     },
     de: {
       term: "EMPFEHLUNGEN",
       etymology: "GERMAN ETYMOLOGY FOR RECOMMENDATIONS",
-      phonetic: "de: [ˌrɛkəmɛnˈdeɪʃənz]", // ADDED German phonetic
+      phonetic: "[ɛmpfeːlʊŋən]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: 'GERMAN: Output from a deliberative mini-public', id: 'default-recommendations-type-de' },
-        keyAttributes: { type: 'text', content: 'GERMAN: Summarise the key decisions made by the assembly members', id: 'default-recommendations-attributes-de' },
-        impactPurpose: { type: 'text', content: 'GERMAN: Inform policy makers of an assembly\'s decisions and proposals for policy implementation', id: 'default-recommendations-impact-de' }
+        typeCategory: { type: 'text', content: 'Ergebnisse einer deliberativen Mini-Öffentlichkeit', id: 'default-recommendations-type-de' },
+        keyAttributes: { type: 'text', content: 'die wichtigsten Entscheidungen der Versammlungsmitglieder zusammenfassen', id: 'default-recommendations-attributes-de' },
+        impactPurpose: { type: 'text', content: "politische Entscheidungsträger:innen über die Beschlüsse einer Versammlung und Vorschläge zur Umsetzung der Politik zu unterrichten", id: 'default-recommendations-impact-de' }
       }
     }
   },
@@ -478,18 +483,18 @@ const allTermsData: TermData[] = [
       phonetic: "[sɪˈnɑːrɪəʊz]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: 'Narrative imaginings of possible actions, situations or events in the future', id: 'default-scenarios-type-en' },
-        keyAttributes: { type: 'text', content: 'Create a framework for discussing complex issues and different perspectives on a topic in an assembly process', id: 'default-scenarios-attributes-en' },
-        impactPurpose: { type: 'text', content: 'Help citizens understand impacts and consequences of different actions and policies and explore alternatives', id: 'default-scenarios-impact-en' }
+        keyAttributes: { type: 'text', content: 'create a framework for discussing complex issues and different perspectives on a topic in an assembly process', id: 'default-scenarios-attributes-en' },
+        impactPurpose: { type: 'text', content: 'help citizens understand impacts and consequences of different actions and policies and explore alternatives', id: 'default-scenarios-impact-en' }
       }
     },
     de: {
       term: "SZENARIEN",
       etymology: "GERMAN ETYMOLOGY FOR SCENARIOS",
-      phonetic: "de: [sɪˈnɑːrɪəʊz]", // ADDED German phonetic
+      phonetic: "[t͡sɛnaˈʁiːən]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: 'GERMAN: Narrative imaginings of possible actions, situations or events in the future', id: 'default-scenarios-type-de' },
-        keyAttributes: { type: 'text', content: 'GERMAN: Create a framework for discussing complex issues and different perspectives on a topic in an assembly process', id: 'default-scenarios-attributes-de' },
-        impactPurpose: { type: 'text', content: 'GERMAN: Help citizens understand impacts and consequences of different actions and policies and explore alternatives', id: 'default-scenarios-impact-de' }
+        typeCategory: { type: 'text', content: 'Narrative Vorstellungen von möglichen Handlungen, Situationen oder Ereignissen in der Zukunft', id: 'default-scenarios-type-de' },
+        keyAttributes: { type: 'text', content: 'die Schaffung eines Rahmens für die Erörterung komplexer Fragen und unterschiedlicher Perspektiven zu einem Thema in einem Montageprozess ermöglichen', id: 'default-scenarios-attributes-de' },
+        impactPurpose: { type: 'text', content: 'den Bürger:innen zu helfen, die Auswirkungen und Folgen verschiedener Maßnahmen und Strategien zu verstehen und Alternativen zu prüfen', id: 'default-scenarios-impact-de' }
       }
     }
   },
@@ -501,18 +506,18 @@ const allTermsData: TermData[] = [
       phonetic: "[sɔːˈtɪʃən]",
       defaultDefinition: {
         typeCategory: { type: 'text', content: 'Recruitment strategy', id: 'default-sortition-type-en' },
-        keyAttributes: { type: 'text', content: 'Uses random stratified sampling to identify and select a representative sample of the population', id: 'default-sortition-attributes-en' },
-        impactPurpose: { type: 'text', content: 'Ensure the assembly members represent the population in terms of key demographics', id: 'default-sortition-impact-en' }
+        keyAttributes: { type: 'text', content: 'uses random stratified sampling to identify and select a representative sample of the population', id: 'default-sortition-attributes-en' },
+        impactPurpose: { type: 'text', content: 'ensure the assembly members represent the population in terms of key demographics', id: 'default-sortition-impact-en' }
       }
     },
     de: {
-      term: "LOSVERFAHREN",
+      term: "SORTIERUNG",
       etymology: "GERMAN ETYMOLOGY FOR SORTITION",
-      phonetic: "de: [sɔːˈtɪʃən]", // ADDED German phonetic
+      phonetic: "[zɔʁˈtiːʁʊŋ]", 
       defaultDefinition: {
-        typeCategory: { type: 'text', content: 'GERMAN: Recruitment strategy', id: 'default-sortition-type-de' },
-        keyAttributes: { type: 'text', content: 'GERMAN: Uses random stratified sampling to identify and select a representative sample of the population', id: 'default-sortition-attributes-de' },
-        impactPurpose: { type: 'text', content: 'GERMAN: Ensure the assembly members represent the population in terms of key demographics', id: 'default-sortition-impact-de' }
+        typeCategory: { type: 'text', content: 'Recruitmentstrategie', id: 'default-sortition-type-de' },
+        keyAttributes: { type: 'text', content: 'durch geschichtete Zufallsstichproben eine Auswahl einer repräsentativen Stichprobe der Grundgesamtheit ermittelt', id: 'default-sortition-attributes-de' },
+        impactPurpose: { type: 'text', content: 'sicherzustellen, dass die Mitglieder der Versammlung die Bevölkerung in Bezug auf die wichtigsten demografischen Merkmale repräsentieren', id: 'default-sortition-impact-de' }
       }
     }
   }
@@ -591,7 +596,7 @@ const uiTranslations = {
     cardTitleTypeCategory: "1. TYP / KATEGORIE",
     cardTitleKeyAttributes: "2. BESONDERE ATTRIBUTE",
     cardTitleImpactPurpose: "3. ZWECK / WIRKUNG",
-    textThat: "DER DIE    DAS",
+    textThat: "DER\nDIE\nDAS",
     textTo: "UM",
     // Card input placeholders
     placeholderEnterNew: (category: string) => `Neue ${category} eingeben...`,
@@ -614,7 +619,7 @@ const uiTranslations = {
     // Saved definitions list
     definitionsAddedFor: (count: number, term: string) => `${count} DEFINITIONEN HINZUGEFÜGT FÜR ${term.toUpperCase()}`,
     sortRecent: "NEUESTE",
-    sortPopular: "BELIEBTESTE",
+    sortPopular: "BELIEBT",
     sortRandom: "ZUFÄLLIG",
     searchPlaceholder: "SUCHEN",
     labelLikeDefinition: "Definition liken",
@@ -633,15 +638,47 @@ const uiTranslations = {
   }
 };
 
+// A mock translation function. Replace with a real API in production.
+const translateText = async (text: string, targetLanguage: 'en' | 'de', sourceLanguage?: 'en' | 'de'): Promise<string> => {
+  if (!text || !sourceLanguage || !targetLanguage || sourceLanguage === targetLanguage) {
+    return text; // No need to translate
+  }
+
+  console.log(`Translating "${text}" from ${sourceLanguage} to ${targetLanguage} using MyMemory API...`);
+
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLanguage}|${targetLanguage}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`MyMemory API request failed with status ${response.status}`);
+    }
+    const data = await response.json();
+
+    if (data.responseData && data.responseData.translatedText) {
+      // Sometimes MyMemory returns the original text if it can't translate.
+      // We can check the match quality. A match of 1 means it's a good machine translation.
+      // Lower matches might be less reliable. We'll accept anything for now.
+      console.log('Translation successful:', data.responseData.translatedText);
+      return data.responseData.translatedText;
+    } else {
+      console.warn('Translation failed, no translated text in response. Response:', data);
+      return text; // Fallback to original text
+    }
+  } catch (error) {
+    console.error("Error during translation:", error);
+    return text; // Fallback to original text on any error
+  }
+};
+
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null); // Ref for the hidden file input
   const [isDrawing, setIsDrawing] = useState(false);
-  // const [drawingDataUrl, setDrawingDataUrl] = useState<string | null>(null); // Will be stored in newOptionContent.content
 
   // --- State for current term ---
   const [currentLanguage, setCurrentLanguage] = useState<'en' | 'de'>('en'); // ADDED Language state
   const [currentTermIdx, setCurrentTermIdx] = useState<number>(initialTermIndex);
+  const prevTermIdxRef = useRef<number>(); // To track term changes
 
   // Derive current term data based on language
   const currentTermEntry = allTermsData[currentTermIdx];
@@ -650,7 +687,6 @@ function App() {
 
   const currentTerm = currentTermDisplayData.term;
   const currentEtymology = currentTermDisplayData.etymology;
-  // const currentPhonetic = currentTermData.phonetic; // REMOVED, will be derived
   const currentPhonetic = currentTermDisplayData.phonetic; // MODIFIED: Directly use phonetic from current language display data
 
 
@@ -661,9 +697,39 @@ function App() {
 
   // --- State for the list of available options (currently hardcoded) ---
   // In a real app, these would be fetched and could be more complex objects
-  const [typeCategoryOptions, setTypeCategoryOptions] = useState<CardOptionValue[]>([]);
-  const [keyAttributesOptions, setKeyAttributesOptions] = useState<CardOptionValue[]>([]);
-  const [impactPurposeOptions, setImpactPurposeOptions] = useState<CardOptionValue[]>([]);
+  const [allTypeCategoryOptions, setAllTypeCategoryOptions] = useState<CardOptionValue[]>([]);
+  const [allKeyAttributesOptions, setAllKeyAttributesOptions] = useState<CardOptionValue[]>([]);
+  const [allImpactPurposeOptions, setAllImpactPurposeOptions] = useState<CardOptionValue[]>([]);
+
+  // Filtered options based on current language
+  const typeCategoryOptions = useMemo(() => {
+    return allTypeCategoryOptions.filter(opt => {
+      // For default options (which have IDs like 'default-something'), only show the one
+      // matching the current language. For all other options (user-created, media), show them always.
+      if (opt.id?.startsWith('default-')) {
+        return opt.language === currentLanguage;
+      }
+      return true;
+    });
+  }, [allTypeCategoryOptions, currentLanguage]);
+
+  const keyAttributesOptions = useMemo(() => {
+    return allKeyAttributesOptions.filter(opt => {
+      if (opt.id?.startsWith('default-')) {
+        return opt.language === currentLanguage;
+      }
+      return true;
+    });
+  }, [allKeyAttributesOptions, currentLanguage]);
+
+  const impactPurposeOptions = useMemo(() => {
+    return allImpactPurposeOptions.filter(opt => {
+      if (opt.id?.startsWith('default-')) {
+        return opt.language === currentLanguage;
+      }
+      return true;
+    });
+  }, [allImpactPurposeOptions, currentLanguage]);
 
   // --- State for saved definitions (will come from Firestore) ---
   const [savedDefinitions, setSavedDefinitions] = useState<Definition[]>([]);
@@ -680,7 +746,6 @@ function App() {
 
   // --- State for adding new card options ---
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
-  // const [newOptionText, setNewOptionText] = useState<string>(""); // REPLACED by newOptionContent
   const [newOptionContent, setNewOptionContent] = useState<CardOptionValue>({ type: 'text', content: '' });
   const [activeInputMode, setActiveInputMode] = useState<'text' | 'drawing' | 'voice' | 'image'>('text');
 
@@ -707,18 +772,20 @@ function App() {
   const playbackWaveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [isAnimating, setIsAnimating] = useState(true);
 
   const MAX_RECORDING_TIME = 30; // 30 seconds
 
   // --- Placeholder for current term ---
-  // const currentTerm = "DEMOCRACY"; // Replaced by dynamic currentTerm
 
   // Term navigation handlers
   const handlePreviousTerm = () => {
+    setIsAnimating(false);
     setCurrentTermIdx((prevIndex) => (prevIndex - 1 + allTermsData.length) % allTermsData.length);
   };
 
   const handleNextTerm = () => {
+    setIsAnimating(false);
     setCurrentTermIdx((prevIndex) => (prevIndex + 1) % allTermsData.length);
   };
 
@@ -726,9 +793,32 @@ function App() {
   useEffect(() => {
     const newTermEntry = allTermsData[currentTermIdx];
     const newTermDisplayData = newTermEntry[currentLanguage];
-    setSelectedTypeCategory(newTermDisplayData.defaultDefinition.typeCategory);
-    setSelectedKeyAttributes(newTermDisplayData.defaultDefinition.keyAttributes);
-    setSelectedImpactPurpose(newTermDisplayData.defaultDefinition.impactPurpose);
+
+    // If the term itself has changed, always reset to the default definitions for that new term.
+    if (prevTermIdxRef.current !== currentTermIdx) {
+      setSelectedTypeCategory(newTermDisplayData.defaultDefinition.typeCategory);
+      setSelectedKeyAttributes(newTermDisplayData.defaultDefinition.keyAttributes);
+      setSelectedImpactPurpose(newTermDisplayData.defaultDefinition.impactPurpose);
+    } else {
+      // If only the language has changed, check each card.
+      // If a card is a default card, switch it to the corresponding default for the new language.
+      // Otherwise, keep the user-defined card (it will be translated).
+
+      if (selectedTypeCategory.id?.startsWith('default-')) {
+        setSelectedTypeCategory(newTermDisplayData.defaultDefinition.typeCategory);
+      }
+
+      if (selectedKeyAttributes.id?.startsWith('default-')) {
+        setSelectedKeyAttributes(newTermDisplayData.defaultDefinition.keyAttributes);
+      }
+
+      if (selectedImpactPurpose.id?.startsWith('default-')) {
+        setSelectedImpactPurpose(newTermDisplayData.defaultDefinition.impactPurpose);
+      }
+    }
+
+    // Update ref for the next render cycle
+    prevTermIdxRef.current = currentTermIdx;
   }, [currentTermIdx, currentLanguage, allTermsData]);
 
   // Effect to close etymology popover when term or language changes
@@ -748,6 +838,98 @@ function App() {
       // Fallback for unexpected data structure
       return { type: 'text', content: 'Invalid option data', id: `invalid-${index}-${new Date().getTime()}` };
     });
+  };
+
+  const saveAllDefaultDefinitionsToFirebase = async () => {
+    console.log("Starting to save all default options to Firebase...");
+    for (const termData of allTermsData) {
+      const termId = termData.id;
+      if (!termId) {
+        console.warn("Skipping a term because it has no ID.", termData);
+        continue;
+      }
+      console.log(`Processing term: ${termId}`);
+      const termOptionsDocRef = doc(db, 'cardOptions', termId);
+  
+      try {
+        // We will overwrite existing documents to ensure defaults are always correct.
+        // User-generated options are added with merge: true, so they won't be lost unless
+        // this script is run after users have added data. For initial setup, this is safe.
+
+        const enDefs = termData.en.defaultDefinition;
+        const deDefs = termData.de.defaultDefinition;
+
+        // Add language property to each default option for filtering.
+        const typeCategoryOptions = [
+          { ...enDefs.typeCategory, language: 'en' },
+          { ...deDefs.typeCategory, language: 'de' }
+        ];
+        const keyAttributesOptions = [
+          { ...enDefs.keyAttributes, language: 'en' },
+          { ...deDefs.keyAttributes, language: 'de' }
+        ];
+        const impactPurposeOptions = [
+          { ...enDefs.impactPurpose, language: 'en' },
+          { ...deDefs.impactPurpose, language: 'de' }
+        ];
+
+        // Using setDoc will create the document or overwrite it.
+        await setDoc(termOptionsDocRef, {
+          typeCategory: typeCategoryOptions,
+          keyAttributes: keyAttributesOptions,
+          impactPurpose: impactPurposeOptions
+        });
+
+        console.log(`Successfully created/updated default options for ${termId}`);
+      } catch (error) {
+        console.error(`Error processing term ${termId}:`, error);
+      }
+    }
+    alert("Finished populating/updating Firestore with all default term options. Check the console for details. You can disable this button after setup.");
+  };
+
+  const handleDeleteAllCardOptions = async () => {
+    const confirmation = window.confirm(
+      "Are you sure you want to delete ALL user-added and default card options from Firebase? This action cannot be undone. You will need to click 'Save Defaults to DB' again to restore the initial cards."
+    );
+    if (confirmation) {
+      console.log("Starting to delete all card options from Firebase...");
+      try {
+        const optionsCollectionRef = collection(db, 'cardOptions');
+        const querySnapshot = await getDocs(optionsCollectionRef);
+        
+        if (querySnapshot.empty) {
+          alert("No card options found in Firestore to delete.");
+          return;
+        }
+
+        const batch = writeBatch(db);
+        querySnapshot.forEach((doc) => {
+          console.log(`Queueing deletion for doc: ${doc.id}`);
+          batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+
+        // After successful deletion, clear local state and reset cards to default
+        setAllTypeCategoryOptions([]);
+        setAllKeyAttributesOptions([]);
+        setAllImpactPurposeOptions([]);
+
+        const currentTermData = allTermsData[currentTermIdx];
+        const displayData = currentTermData[currentLanguage];
+        setSelectedTypeCategory(displayData.defaultDefinition.typeCategory);
+        setSelectedKeyAttributes(displayData.defaultDefinition.keyAttributes);
+        setSelectedImpactPurpose(displayData.defaultDefinition.impactPurpose);
+
+        alert("Successfully deleted all card options from Firebase.");
+        console.log("All card options have been deleted.");
+        
+      } catch (error) {
+        console.error("Error deleting card options:", error);
+        alert("An error occurred while deleting card options. Check the console for details.");
+      }
+    }
   };
 
   // Moved processAudioBufferToWaveform to be a general helper
@@ -847,36 +1029,44 @@ function App() {
 
   // --- Fetch Card Options from Firestore ---
   useEffect(() => {
-    const fetchOptions = async () => {
+    const fetchTermSpecificOptions = async () => {
+      if (!currentTermEntry.id) return;
+  
+      // This function now exclusively fetches from Firestore.
+      // The `saveAllDefaultDefinitionsToFirebase` function is responsible for populating the initial data.
+      setAllTypeCategoryOptions([]);
+      setAllKeyAttributesOptions([]);
+      setAllImpactPurposeOptions([]);
+  
       try {
-        const optionsCollection = collection(db, 'cardOptions');
-
-        const typeDoc = await getDoc(doc(optionsCollection, 'typeCategory'));
-        if (typeDoc.exists() && typeDoc.data().options) {
-          const options = mapToCardOptionValueArray(typeDoc.data().options);
-          setTypeCategoryOptions(options);
-          if (options.length > 0 && selectedTypeCategory.id === 'loading') setSelectedTypeCategory(options[0]);
-        }
-
-        const attributesDoc = await getDoc(doc(optionsCollection, 'keyAttributes'));
-        if (attributesDoc.exists() && attributesDoc.data().options) {
-          const options = mapToCardOptionValueArray(attributesDoc.data().options);
-          setKeyAttributesOptions(options);
-          if (options.length > 0 && selectedKeyAttributes.id === 'loading') setSelectedKeyAttributes(options[0]);
-        }
-
-        const purposeDoc = await getDoc(doc(optionsCollection, 'impactPurpose'));
-        if (purposeDoc.exists() && purposeDoc.data().options) {
-          const options = mapToCardOptionValueArray(purposeDoc.data().options);
-          setImpactPurposeOptions(options);
-          if (options.length > 0 && selectedImpactPurpose.id === 'loading') setSelectedImpactPurpose(options[0]);
+        const termOptionsDocRef = doc(db, 'cardOptions', currentTermEntry.id);
+        const docSnap = await getDoc(termOptionsDocRef);
+  
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          
+          if (data.typeCategory) {
+            setAllTypeCategoryOptions(mapToCardOptionValueArray(data.typeCategory));
+          }
+          if (data.keyAttributes) {
+            setAllKeyAttributesOptions(mapToCardOptionValueArray(data.keyAttributes));
+          }
+          if (data.impactPurpose) {
+            setAllImpactPurposeOptions(mapToCardOptionValueArray(data.impactPurpose));
+          }
+        } else {
+          // If the document doesn't exist, it means the setup script hasn't been run for this term.
+          // The options will be empty, which is the correct state.
+          console.warn(`No cardOptions document found for termId: ${currentTermEntry.id}. Run the 'Save Defaults to DB' script.`);
         }
       } catch (error) {
-        console.error("Error fetching card options:", error);
+        console.error("Error fetching term-specific card options from Firestore:", error);
       }
     };
-    fetchOptions();
-  }, []);
+  
+    fetchTermSpecificOptions();
+  }, [currentTermEntry.id]);
+
 
   // --- Fetch Saved Definitions from Firestore (Real-time) ---
   useEffect(() => {
@@ -958,6 +1148,7 @@ function App() {
   }, [likedDefinitionIds]);
 
   const handleShuffle = () => {
+    setIsAnimating(false);
     if (typeCategoryOptions.length > 0) {
       const randomIndex = Math.floor(Math.random() * typeCategoryOptions.length);
       setSelectedTypeCategory(typeCategoryOptions[randomIndex]);
@@ -979,6 +1170,7 @@ function App() {
     direction: 'next' | 'prev'
   ) => {
     if (options.length === 0) return;
+    setIsAnimating(true);
     const currentIndex = options.findIndex(opt => opt.id ? opt.id === currentOption.id : opt.content === currentOption.content && opt.type === currentOption.type);
     let nextIndex;
     if (direction === 'next') {
@@ -1047,6 +1239,7 @@ function App() {
 
   const handleSaveNewOption = async () => {
     if (!editingCategory) return;
+    setIsAnimating(false);
     let finalOptionToSave = { ...newOptionContent };
 
     if (activeInputMode === 'drawing' && canvasRef.current) {
@@ -1067,60 +1260,87 @@ function App() {
         handleCloseInputInterface();
         return;
       }
-    } else if (activeInputMode === 'text' && !newOptionContent.content.trim()) {
-      handleCloseInputInterface();
-      return;
+    } else if (activeInputMode === 'text') {
+      if (!newOptionContent.content.trim()) {
+        handleCloseInputInterface();
+        return;
+      }
+      // Tag text content with the current language
+      finalOptionToSave = { 
+        ...newOptionContent, 
+        content: newOptionContent.content.trim(), 
+        language: currentLanguage 
+      };
     }
-    finalOptionToSave.id = `${finalOptionToSave.type}-${new Date().getTime()}`;
-    finalOptionToSave.content = finalOptionToSave.content.trim(); // Trim text content
 
-    const optionsCollectionRef = collection(db, 'cardOptions');
-    const categoryDocRef = doc(optionsCollectionRef, editingCategory);
+    finalOptionToSave.id = `${finalOptionToSave.type}-${new Date().getTime()}`;
+
+    const termOptionsDocRef = doc(db, 'cardOptions', currentTermEntry.id);
 
     try {
-      const docSnap = await getDoc(categoryDocRef);
-      let currentOptions: CardOptionValue[] = [];
-      if (docSnap.exists() && docSnap.data().options) {
-        currentOptions = mapToCardOptionValueArray(docSnap.data().options);
-      }
-      
-      // Avoid adding exact duplicates for text, for drawings, new ID makes it unique
-      const isDuplicate = currentOptions.some(opt => opt.type === finalOptionToSave.type && opt.content === finalOptionToSave.content);
+      await runTransaction(db, async (transaction: Transaction) => {
+        const termDoc = await transaction.get(termOptionsDocRef);
+        
+        const currentData = termDoc.exists() ? termDoc.data() : {};
+        const currentOptions = currentData[editingCategory] 
+          ? mapToCardOptionValueArray(currentData[editingCategory]) 
+          : [];
 
-      if (!isDuplicate || finalOptionToSave.type === 'drawing') { 
-        const updatedOptions = [...currentOptions, finalOptionToSave];
-        // Firestore expects plain objects, include waveformData if present
-        const optionsToStore = updatedOptions.map(opt => {
-          const optionData: any = { type: opt.type, content: opt.content, id: opt.id };
-          if (opt.waveformData) {
-            optionData.waveformData = opt.waveformData;
+        // Avoid adding exact duplicates for text content
+        const isDuplicate = currentOptions.some(opt => 
+          opt.type === finalOptionToSave.type && 
+          opt.content === finalOptionToSave.content &&
+          opt.language === finalOptionToSave.language
+        );
+
+        if (!isDuplicate) {
+          const updatedCategoryOptions = [...currentOptions, finalOptionToSave];
+          
+          const optionsToStore = updatedCategoryOptions.map(opt => {
+            const optionData: any = { type: opt.type, content: opt.content, id: opt.id };
+            if (opt.waveformData) {
+              optionData.waveformData = opt.waveformData;
+            }
+            if (opt.language) {
+              optionData.language = opt.language;
+            }
+            return optionData;
+          });
+
+          // This transaction now correctly updates the document in Firestore.
+          transaction.set(termOptionsDocRef, { 
+            ...currentData, 
+            [editingCategory]: optionsToStore 
+          }, { merge: true });
+
+          // Update local state immediately, now correctly including all previous options.
+          if (editingCategory === 'typeCategory') {
+            setAllTypeCategoryOptions(updatedCategoryOptions);
+            setSelectedTypeCategory(finalOptionToSave);
+          } else if (editingCategory === 'keyAttributes') {
+            setAllKeyAttributesOptions(updatedCategoryOptions);
+            setSelectedKeyAttributes(finalOptionToSave);
+          } else if (editingCategory === 'impactPurpose') {
+            setAllImpactPurposeOptions(updatedCategoryOptions);
+            setSelectedImpactPurpose(finalOptionToSave);
           }
-          return optionData;
-        }); 
-        await updateDoc(categoryDocRef, { options: optionsToStore });
-
-        if (editingCategory === 'typeCategory') {
-          setTypeCategoryOptions(updatedOptions);
-          setSelectedTypeCategory(finalOptionToSave);
-        } else if (editingCategory === 'keyAttributes') {
-          setKeyAttributesOptions(updatedOptions);
-          setSelectedKeyAttributes(finalOptionToSave);
-        } else if (editingCategory === 'impactPurpose') {
-          setImpactPurposeOptions(updatedOptions);
-          setSelectedImpactPurpose(finalOptionToSave);
+        } else {
+           // If it's a duplicate text, just select the existing one.
+          const existingOption = currentOptions.find(opt => 
+              opt.type === 'text' && 
+              opt.content === finalOptionToSave.content && 
+              opt.language === finalOptionToSave.language
+          );
+          if (existingOption) {
+            if (editingCategory === 'typeCategory') setSelectedTypeCategory(existingOption);
+            if (editingCategory === 'keyAttributes') setSelectedKeyAttributes(existingOption);
+            if (editingCategory === 'impactPurpose') setSelectedImpactPurpose(existingOption);
+          }
         }
-      } else {
-         // If it's a duplicate text, still select it
-        const existingOption = currentOptions.find(opt => opt.type === 'text' && opt.content === finalOptionToSave.content);
-        if (existingOption) {
-          if (editingCategory === 'typeCategory') setSelectedTypeCategory(existingOption);
-          if (editingCategory === 'keyAttributes') setSelectedKeyAttributes(existingOption);
-          if (editingCategory === 'impactPurpose') setSelectedImpactPurpose(existingOption);
-        }
-      }
+      });
       handleCloseInputInterface();
     } catch (error) {
-      console.error("Error saving new option:", error);
+      console.error("Error saving new option with transaction:", error);
       handleCloseInputInterface();
     }
   };
@@ -1140,8 +1360,6 @@ function App() {
       };
 
       try {
-        // Simulate a slight delay before compression starts to make progress bar appear if compression is too fast
-        // await new Promise(resolve => setTimeout(resolve, 100)); 
         setUploadProgress(1); // Show progress bar immediately
 
         const compressedFile = await imageCompression(file, compressionOptions);
@@ -1187,10 +1405,6 @@ function App() {
 
             setImagePreviewUrl(croppedDataUrl);
             setNewOptionContent({ type: 'image', content: croppedDataUrl });
-            // We can create a new File object from the data URL if needed for selectedImageFile
-            // For now, keeping selectedImageFile as the compressed (but not necessarily cropped) version
-            // or convert croppedDataUrl back to a Blob/File if strict File type is needed for `selectedImageFile` elsewhere.
-            // For simplicity, let selectedImageFile remain the compressed one.
             setSelectedImageFile(compressedFile); 
 
           };
@@ -1316,8 +1530,6 @@ function App() {
       context.closePath();
     }
     setIsDrawing(false);
-    // const dataUrl = canvasRef.current?.toDataURL('image/png');
-    // setNewOptionContent({ type: 'drawing', content: dataUrl || '' }); // Save on end, or on save button click?
   };
   
 
@@ -1719,17 +1931,20 @@ function App() {
 };
 
   // --- Component to display card content (text or drawing) ---
-  const CardContentDisplay = ({ option, displayContext = 'mainCard' }: { option: CardOptionValue, displayContext?: 'mainCard' | 'savedList' }) => {
+  const CardContentDisplay = ({ option, displayContext = 'mainCard', language }: { option: CardOptionValue, displayContext?: 'mainCard' | 'savedList', language: 'en' | 'de' }) => {
     // State and refs for audio popover in savedList
     const [popoverWaveformData, setPopoverWaveformData] = useState<number[] | null>(null);
     const [isPopoverAudioPlaying, setIsPopoverAudioPlaying] = useState(false);
     const popoverAudioRef = useRef<HTMLAudioElement>(null);
     const popoverWaveformCanvasRef = useRef<HTMLCanvasElement>(null);
-    const localAudioContextRef = useRef<AudioContext | null>(null); 
+    const localAudioContextRef = useRef<AudioContext | null>(null);
     // Use a unique disclosure state for each popover instance if they are independent
     // However, if only one popover can be open at a time for a CardContentDisplay instance, one state is fine.
     // For simplicity and assuming one media popover per card item at a time:
     const { isOpen: isMediaPopoverOpen, onOpen: onOpenMediaPopover, onClose: onCloseMediaPopover } = useDisclosure();
+
+    const [isHovered, setIsHovered] = useState(false);
+    const T = uiTranslations[language];
 
     // State and refs for audio display in mainCard
     const [mainCardWaveformData, setMainCardWaveformData] = useState<number[] | null>(null);
@@ -1762,7 +1977,7 @@ function App() {
         setPopoverWaveformData(null);
       }
       return () => { isActive = false };
-    }, [option, displayContext, popoverWaveformData, isMediaPopoverOpen]); // Added isMediaPopoverOpen
+    }, [option, displayContext, popoverWaveformData, isMediaPopoverOpen]);
 
     // Effect to load and process audio for mainCard
     useEffect(() => {
@@ -1848,15 +2063,15 @@ function App() {
     if (displayContext === 'savedList') {
       if (option.type === 'text') {
         return (
-          <Text 
-            textAlign="left" 
-            fontSize="16px" 
-            fontWeight="medium" 
-            color="black" 
-            title={option.content} 
+          <Text
+            textAlign="left"
+            fontSize="16px"
+            fontWeight="medium"
+            color="black"
+            title={option.content}
             w="100%"
           >
-            {option.content || '-'}
+            {option.content}
           </Text>
         );
       } else if (option.type === 'audio') {
@@ -1992,24 +2207,30 @@ function App() {
     
     // Default for mainCard or other contexts (text)
     return (
-      <Flex 
+      <Flex
         h="100%"
         w="100%"
+        flexDirection="column"
         alignItems="center"
-        justifyContent="flex-start" 
-        p={6} 
+        justifyContent="center"
+        p={6}
         borderRadius="30px"
+        position="relative"
       >
-        <Text 
-          fontSize="md" 
-          textAlign="left" 
-          fontWeight="medium" 
-          lineHeight="1.3"
-          whiteSpace="pre-wrap" 
-          overflowWrap="break-word"
-        >
-          {option.content || 'Loading...'}
-        </Text>
+        {/* Text content fills available space, centered */}
+        <Box flexGrow={1} display="flex" alignItems="center" w="100%">
+            <Text
+              fontSize="md"
+              textAlign="left"
+              fontWeight="medium"
+              lineHeight="1.3"
+              whiteSpace="pre-wrap"
+              overflowWrap="break-word"
+              w="100%"
+            >
+              {option.content}
+            </Text>
+        </Box>
       </Flex>
     );
   };
@@ -2032,29 +2253,54 @@ function App() {
       <VStack spacing={1} align="stretch" w="100%">
         {/* Header Section */}
         <Flex w="100%" alignItems="center" bg="whiteAlpha.300" p={4} pl={10} borderRadius="0" >
-          <Heading as="h1" size="sm" color="black" fontWeight="medium"> 
+        <Heading as="h1" size="sm" color="black" fontWeight="medium"> 
             CULTURE & CLIMATE CHANGE
           </Heading>
           <Spacer />
+          <Button size="sm" onClick={saveAllDefaultDefinitionsToFirebase} mr={4}>Save Defaults to DB</Button>
+          <Button size="sm" onClick={handleDeleteAllCardOptions} mr={4} variant="outline" colorScheme="red">Delete All Options</Button>
+      
+          
           <HStack spacing={3} pr={7}>
-            <Button 
-              variant="ghost" 
-              color="black" 
-              _hover={{ color: "white", bg: "blackAlpha.300" }} // Added bg on hover for consistency if other ghost buttons have it
-              _active={{ bg: "blackAlpha.400" }} // Added active state bg
-              onClick={() => setCurrentLanguage(currentLanguage === 'en' ? 'de' : 'en')}
-              fontWeight="bold"
-              // size="sm" // Removed size="sm"
-              width="40px" // Explicit width for square shape
-              height="40px" // Explicit height for square shape
-              minWidth="40px" // Ensure minWidth doesn't override
-              p={0} // Remove padding to allow text to center in fixed size
-              borderRadius="md" // Standard border radius for buttons/icon buttons
-              lineHeight="40px" // Center text vertically
-              textAlign="center"
+            <HStack
+              spacing={0}
+              bg="blackAlpha.200"
+              borderRadius="md"
+              p="2px"
             >
-              {currentLanguage.toUpperCase()}
-            </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                bg={currentLanguage === 'en' ? 'white' : 'transparent'}
+                color={'black'}
+                onClick={() => {
+                    setIsAnimating(false);
+                    setCurrentLanguage('en');
+                }}
+                _hover={{ bg: currentLanguage === 'en' ? 'white' : 'whiteAlpha.500' }}
+                w="45px"
+                fontWeight="bold"
+                borderRadius="md"
+              >
+                EN
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                bg={currentLanguage === 'de' ? 'white' : 'transparent'}
+                color={'black'}
+                onClick={() => {
+                    setIsAnimating(false);
+                    setCurrentLanguage('de');
+                }}
+                _hover={{ bg: currentLanguage === 'de' ? 'white' : 'whiteAlpha.500' }}
+                w="45px"
+                fontWeight="bold"
+                borderRadius="md"
+              >
+                DE
+              </Button>
+            </HStack>
             <IconButton aria-label={T.labelHelpIcon} icon={<HelpCircle size={23} strokeWidth={2.5} />} variant="ghost" color="black" _hover={{ color: "white" }} onClick={onOpenHelpModal} />
             <IconButton aria-label={T.labelMenuIcon} icon={<MenuIconFeather size={23} strokeWidth={2.5} />} variant="ghost" color="black" _hover={{ color: "white" }} />
           </HStack>
@@ -2064,10 +2310,10 @@ function App() {
         <VStack spacing={5} align="center" mt={10}>
           <Text fontSize="17px" color="white" letterSpacing="4px">{currentPhonetic || ''}</Text> {/* Display phonetic or empty string */}
           <HStack alignItems="center">
-            <IconButton aria-label={T.labelPreviousTerm} icon={<ChevronLeft size={23} strokeWidth={2.5} />} variant="ghost" color="black" bg="whiteAlpha.300" _hover={{ bg: "white" }} borderRadius="10px" onClick={handlePreviousTerm} mr="100px" /> {/* TRANSLATED */}
+            <IconButton aria-label={T.labelPreviousTerm} icon={<ChevronLeft size={23} strokeWidth={2.5} />} variant="ghost" color="black" bg="whiteAlpha.300" _hover={{ bg: "white" }} borderRadius="10px" onClick={handlePreviousTerm} mr="20px" /> {/* TRANSLATED */}
             <Popover
               placement="top"
-              gutter={-80}
+              gutter={-50}
               isOpen={isEtymologyPopoverOpen} // Controlled by isOpen
               // No trigger, onOpen, or onClose here
             >
@@ -2081,7 +2327,7 @@ function App() {
                   _hover={{ color: "white", textDecoration: "none" }}
                   _focus={{ boxShadow: "none" }}
                   onClick={onToggleEtymologyPopover} // onClick uses onToggle
-                  w="660px"
+                  w="820px"
                   textAlign="center"
                 >
                   {currentTerm}
@@ -2095,8 +2341,8 @@ function App() {
                 bg="white" 
                 color="black" 
                 _focus={{ boxShadow: "none" }}
-                h="120px" // Preserving user's style
-                w="578px" // Preserving user's style
+                h="60px" // Preserving user's style
+                w="1254px" // Preserving user's style
                 onClick={onCloseEtymologyPopover} // ADDED THIS LINE
               >
                 {currentEtymology ? (
@@ -2131,7 +2377,7 @@ function App() {
                 )}
               </PopoverContent>
             </Popover>
-            <IconButton aria-label={T.labelNextTerm} icon={<ChevronRight size={23} strokeWidth={2.5} />} variant="ghost"  bg="whiteAlpha.300" _hover={{ bg: "white" }} borderRadius="10px" onClick={handleNextTerm} ml="100px" /> {/* TRANSLATED */}
+            <IconButton aria-label={T.labelNextTerm} icon={<ChevronRight size={23} strokeWidth={2.5} />} variant="ghost"  bg="whiteAlpha.300" _hover={{ bg: "white" }} borderRadius="10px" onClick={handleNextTerm} ml="20px" /> {/* TRANSLATED */}
           </HStack>
         </VStack>
 
@@ -2158,19 +2404,12 @@ function App() {
               {editingCategory === 'typeCategory' ? (
                 renderCardInputInterface('typeCategory') // CORRECTED: Pass key for translation lookup
               ) : (
-                <VStack 
-                  bg="white" 
-                  p={0} 
-                  borderRadius="30px" 
-                  boxShadow="xl" 
-                  w="340px" // Set to square width
-                  h="340px" 
-                  minH="340px" 
-                  justifyContent="center"
-                  overflow="hidden" 
-                >
-                  <CardContentDisplay option={selectedTypeCategory} />
-                </VStack>
+                <CardStack
+                  items={typeCategoryOptions}
+                  activeItem={selectedTypeCategory}
+                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} />}
+                  isAnimating={isAnimating}
+                />
               )}
               <HStack 
                 height="50px"
@@ -2242,7 +2481,7 @@ function App() {
             </VStack>
 
             <Box w={16} textAlign="center" minH="340px" display="flex" alignItems="center" justifyContent="center">
-              <Text fontSize="16px" fontWeight="medium" pb={9} color="black">{T.textThat.toUpperCase()}</Text> {/* TRANSLATED */}
+              <Text fontSize="16px" fontWeight="medium" pb={9} color="black" whiteSpace="pre-line">{T.textThat.toUpperCase()}</Text> {/* TRANSLATED */}
             </Box>
 
             {/* Card 2 with Title above and Buttons Below */}
@@ -2261,19 +2500,12 @@ function App() {
               {editingCategory === 'keyAttributes' ? (
                 renderCardInputInterface('keyAttributes') // CORRECTED: Pass key for translation lookup
               ) : (
-                <VStack 
-                  bg="white"  
-                  p={0} 
-                  borderRadius="30px" 
-                  boxShadow="xl" 
-                  w="340px" // Set to square width
-                  h="340px" 
-                  minH="340px"
-                  justifyContent="center"
-                  overflow="hidden" 
-                >
-                  <CardContentDisplay option={selectedKeyAttributes} />
-                </VStack>
+                <CardStack
+                  items={keyAttributesOptions}
+                  activeItem={selectedKeyAttributes}
+                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} />}
+                  isAnimating={isAnimating}
+                />
               )}
               <HStack 
                 height="50px"
@@ -2364,19 +2596,12 @@ function App() {
               {editingCategory === 'impactPurpose' ? (
                 renderCardInputInterface('impactPurpose') // CORRECTED: Pass key for translation lookup
               ) : (
-                <VStack 
-                  bg="white" 
-                  p={0} 
-                  borderRadius="30px" 
-                  boxShadow="xl" 
-                  w="340px" // Set to square width
-                  h="340px" 
-                  minH="340px"
-                  justifyContent="center"
-                  overflow="hidden" 
-                >
-                  <CardContentDisplay option={selectedImpactPurpose} />
-                </VStack>
+                <CardStack
+                  items={impactPurposeOptions}
+                  activeItem={selectedImpactPurpose}
+                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} />}
+                  isAnimating={isAnimating}
+                />
               )}
               <HStack 
                 height="50px"
@@ -2539,7 +2764,8 @@ function App() {
                       </MenuItem>
                     )}
                   </MenuList>
-                  <InputGroup w="200px">
+                </Menu>
+                <InputGroup w="200px">
                   <InputLeftElement pointerEvents="none">
                     <Search size={23} strokeWidth={2.5} color="black" />
                   </InputLeftElement>
@@ -2559,7 +2785,6 @@ function App() {
                     textTransform="none"
                   />
                 </InputGroup>
-                </Menu>
               </HStack>
             </Flex>
 
@@ -2670,7 +2895,7 @@ function App() {
                       flex={typeFlex}
                       minH="100%"
                     >
-                      <CardContentDisplay option={def.typeCategory} displayContext="savedList" />
+                      <CardContentDisplay option={def.typeCategory} displayContext="savedList" language={currentLanguage} />
                     </Box>
 
                     {/* Box 2: "THAT" */}
@@ -2706,7 +2931,7 @@ function App() {
                       flex={attributesFlex}
                       minH="100%"
                     >
-                      <CardContentDisplay option={def.keyAttributes} displayContext="savedList" />
+                      <CardContentDisplay option={def.keyAttributes} displayContext="savedList" language={currentLanguage} />
                     </Box>
 
                     {/* Box 4: "TO" */}
@@ -2744,7 +2969,7 @@ function App() {
                       flex={purposeFlex}
                       minH="100%"
                     >
-                      <CardContentDisplay option={def.impactPurpose} displayContext="savedList" />
+                      <CardContentDisplay option={def.impactPurpose} displayContext="savedList" language={currentLanguage} />
                     </Box>
                   </HStack>
                   
