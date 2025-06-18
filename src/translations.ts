@@ -1,0 +1,106 @@
+export const uiTranslations = {
+  en: {
+    helpModalTitle: "HOW TO USE THIS TOOL",
+    helpModalIntro: "This tool helps you explore and define complex terms like \"DEMOCRACY\" in the context of culture and climate change.", // Escaped inner quotes
+    helpModalStep1: "1. Use the arrow buttons beneath each of the three card decks to cycle through different card options.",
+    helpModalStep2: "2. Press the plus button beneath each of the three card decks to add new card options.",
+    helpModalStep3: "3. You can add new cards by A) writing a word or paragraph, B) drawing an picture, C) recording audio, or D) uploading an image.",
+    helpModalStep4: "4. Once you're satisfied with a combination, you can click the save button on the right to add your new definition to the list below.",
+    noEtymology: "No etymology information available for this term.",
+    remixDefinitionLabel: "Remix definition",
+    cardTitleTypeCategory: "1. TYPE / CATEGORY",
+    cardTitleKeyAttributes: "2. KEY ATTRIBUTES",
+    cardTitleImpactPurpose: "3. PURPOSE / IMPACT",
+    textThat: "THAT",
+    textTo: "TO",
+    // Card input placeholders
+    placeholderEnterNew: (category: string) => `Enter new ${category}...`,
+    placeholderDrawing: "Start drawing here",
+    placeholderImageUpload: "Select an image to upload",
+    placeholderTapToRecord: "Tap to record",
+    statusRecording: "Recording...",
+    statusCompressing: (progress: number) => `Compressing: ${progress}%`,
+    // Card control button aria-labels
+    labelPreviousOption: "Previous option",
+    labelNextOption: "Next option",
+    labelAddNewOption: "Add new option",
+    labelTextInput: "Text input",
+    labelDrawInput: "Draw input",
+    labelVoiceInput: "Voice input",
+    labelImageInput: "Image input",
+    labelCancel: "Cancel",
+    labelSave: "Save",
+    labelSaveCombination: "Save combination",
+    // Saved definitions list
+    definitionsAddedFor: (count: number, term: string) => `${count} DEFINITIONS ADDED FOR ${term.toUpperCase()}`,
+    sortRecent: "RECENT",
+    sortPopular: "POPULAR",
+    sortRandom: "RANDOM",
+    searchPlaceholder: "SEARCH",
+    labelLikeDefinition: "Like definition",
+    // Alerts
+    alertPleaseSelectOptions: "Please select an option for all three cards.",
+    alertMicrophoneError: "Microphone access denied or an error occurred.",
+    // Term Navigation aria-labels
+    labelPreviousTerm: "Previous term",
+    labelNextTerm: "Next term",
+    // Help and Menu Icon aria-labels in header
+    labelHelpIcon: "Help",
+    labelMenuIcon: "Menu",
+    noAudioContent: "No audio content.",
+    noImageContent: "No image content.",
+    noDrawingContent: "No drawing content.",
+  },
+  de: {
+    helpModalTitle: "SO VERWENDEN SIE DIESES TOOL",
+    helpModalIntro: "Dieses Tool hilft Ihnen, komplexe Begriffe wie 'DEMOKRATIE' im Kontext von Kultur und Klimawandel zu untersuchen und zu definieren.", // Used single quotes for inner term
+    helpModalStep1: "1. Verwenden Sie die Pfeil-Buttons unter jedem der drei Kartenstapel, um durch verschiedene Kartenoptionen zu wechseln.",
+    helpModalStep2: "2. Drücken Sie den Plus-Button unter jedem der drei Kartenstapel, um neue Kartenoptionen hinzuzufügen.",
+    helpModalStep3: "3. Sie können neue Karten hinzufügen, indem Sie A) ein Wort oder einen Absatz schreiben, B) ein Bild zeichnen, C) Audio aufnehmen oder D) ein Bild hochladen.",
+    helpModalStep4: "4. Sobald Sie mit einer Kombination zufrieden sind, können Sie auf den Speichern-Button auf der rechten Seite klicken, um Ihre neue Definition zur Liste unten hinzuzufügen.", // Used single quotes for inner term
+    noEtymology: "Für diesen Begriff sind keine Etymologie-Informationen verfügbar.",
+    remixDefinitionLabel: "Definition neu mischen",
+    cardTitleTypeCategory: "1. TYP / KATEGORIE",
+    cardTitleKeyAttributes: "2. BESONDERE ATTRIBUTE",
+    cardTitleImpactPurpose: "3. ZWECK / WIRKUNG",
+    textThat: "DER\nDIE\nDAS",
+    textTo: "UM",
+    // Card input placeholders
+    placeholderEnterNew: (category: string) => `Neue ${category} eingeben...`,
+    placeholderDrawing: "Beginnen Sie hier zu zeichnen",
+    placeholderImageUpload: "Bild zum Hochladen auswählen",
+    placeholderTapToRecord: "Zum Aufnehmen tippen",
+    statusRecording: "Aufnahme...",
+    statusCompressing: (progress: number) => `Komprimierung: ${progress}%`,
+    // Card control button aria-labels
+    labelPreviousOption: "Vorherige Option",
+    labelNextOption: "Nächste Option",
+    labelAddNewOption: "Neue Option hinzufügen",
+    labelTextInput: "Texteingabe",
+    labelDrawInput: "Zeichnen",
+    labelVoiceInput: "Spracheingabe",
+    labelImageInput: "Bildeingabe",
+    labelCancel: "Abbrechen",
+    labelSave: "Speichern",
+    labelSaveCombination: "Kombination speichern",
+    // Saved definitions list
+    definitionsAddedFor: (count: number, term: string) => `${count} DEFINITIONEN HINZUGEFÜGT FÜR ${term.toUpperCase()}`,
+    sortRecent: "NEUESTE",
+    sortPopular: "BELIEBT",
+    sortRandom: "ZUFÄLLIG",
+    searchPlaceholder: "SUCHEN",
+    labelLikeDefinition: "Definition liken",
+    // Alerts
+    alertPleaseSelectOptions: "Bitte wählen Sie für alle drei Karten eine Option aus.",
+    alertMicrophoneError: "Mikrofonzugriff verweigert oder Fehler aufgetreten.",
+    // Term Navigation aria-labels
+    labelPreviousTerm: "Vorheriger Begriff",
+    labelNextTerm: "Nächster Begriff",
+    // Help and Menu Icon aria-labels in header
+    labelHelpIcon: "Hilfe",
+    labelMenuIcon: "Menü",
+    noAudioContent: "Kein Audioinhalt.",
+    noImageContent: "Kein Bildinhalt.",
+    noDrawingContent: "Kein Zeichnungsinhalt.",
+  }
+}; 

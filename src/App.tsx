@@ -1,62 +1,17 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Box, Heading, Flex, Text, Button, VStack, HStack, Spacer, IconButton, InputGroup, InputLeftElement, Input, Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure, Textarea, Image as ChakraImage, Popover, PopoverTrigger, PopoverContent, PopoverArrow, PopoverCloseButton, PopoverHeader, PopoverBody, Menu, MenuButton, MenuList, MenuItem, Circle, Progress } from '@chakra-ui/react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Box, Heading, Flex, Text, Button, VStack, HStack, Spacer, IconButton, InputGroup, InputLeftElement, Input, Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure, Textarea, Image as ChakraImage, Popover, PopoverTrigger, PopoverContent, PopoverArrow, PopoverCloseButton, PopoverHeader, PopoverBody, Menu, MenuButton, MenuList, MenuItem, Circle, Progress, Grid } from '@chakra-ui/react';
 // Import Feather Icons
 import { HelpCircle, Menu as MenuIconFeather, ChevronLeft, ChevronRight, Shuffle, Save, ChevronUp, Plus, ChevronDown, Search, MessageSquare, Link, ThumbsUp, Copy, Type, Edit3, Mic, Image, X, Check, Trash2, StopCircle, Upload, AlignCenter, RefreshCw } from 'react-feather';
-// Remove or comment out Chakra UI icons if no longer needed, or keep if some are still used elsewhere
-// import { ChevronLeftIcon, ChevronRightIcon, QuestionOutlineIcon, HamburgerIcon, AddIcon, ChevronUpIcon, ChevronDownIcon, /* ExternalLinkIcon, */ CopyIcon, SearchIcon, TriangleDownIcon, ChatIcon, LinkIcon, StarIcon, RepeatIcon } from '@chakra-ui/icons';
 import { db } from './firebase/firebaseConfig'; // Import db
 import { collection, doc, getDoc, getDocs, addDoc, serverTimestamp, onSnapshot, orderBy, query, updateDoc, setDoc, Transaction, runTransaction, writeBatch } from 'firebase/firestore'; // Import Firestore functions (ensure updateDoc is here)
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // Firebase Storage
 import { motion } from 'framer-motion';
 import imageCompression from 'browser-image-compression';
+import { useOutletContext } from 'react-router-dom';
 import type { CardOptionValue, Definition, TermData, LanguageSpecificTermData } from './types';
 import { CardStack } from './components/CardStack';
-
-// --- Data Types (good practice to define shapes) ---
-/*
-interface CardOptionValue {
-  type: 'text' | 'drawing' | 'audio' | 'image';
-  content: string; // Text content, base64 data URL for drawing/image, or audio file URL/reference
-  waveformData?: number[]; // Optional: pre-computed waveform data for audio
-  id?: string; // Optional unique ID for options, useful for keys and comparisons
-  language?: 'en' | 'de'; // ADDED: Language of the original content
-}
-
-interface Definition {
-  id?: string; // Optional: will be assigned by Firestore
-  typeCategory: CardOptionValue;
-  keyAttributes: CardOptionValue;
-  impactPurpose: CardOptionValue;
-  termId?: string; // ADDED: Store the language-neutral ID
-  termLanguage?: 'en' | 'de'; // ADDED: Store the language of the term saved
-  termText?: string; // REPLACED term with termText for clarity
-  createdAt?: any; // For Firestore serverTimestamp
-  likes?: number; // Added for popular sorting
-}
-
-interface TermData {
-  id: string; // Language-neutral identifier
-  en: LanguageSpecificTermData;
-  de: LanguageSpecificTermData; // MODIFIED: German version can now also have phonetic
-}
-
-// MODIFIED TermData structure for multilingual support
-interface LanguageSpecificTermData {
-  term: string;
-  etymology?: string;
-  phonetic?: string; // Phonetic is optional, mainly for English
-  defaultDefinition: {
-    typeCategory: CardOptionValue;
-    keyAttributes: CardOptionValue;
-    impactPurpose: CardOptionValue;
-  };
-}
-*/
-
-// --- Initial Hardcoded Options (will be replaced by Firestore data) ---
-// const initialTypeCategoryOptions: CardOption[] = [ ... ]; // Remove or keep for fallback
-// const initialKeyAttributesOptions: CardOption[] = [ ... ];
-// const initialImpactPurposeOptions: CardOption[] = [ ... ];
+import { uiTranslations } from './translations';
+import { saveAllDefaultDefinitionsToFirebase, handleDeleteAllCardOptions } from './firebase/db';
 
 const defaultTextOption: CardOptionValue = { type: 'text', content: 'Loading...', id: 'loading-default' };
 
@@ -530,113 +485,7 @@ const storage = getStorage(); // Initialize Firebase Storage
 const initialTermIdentifier = "DEMOCRACY"; // This should be the ID
 const initialTermIndex = Math.max(0, allTermsData.findIndex(termData => termData.id === initialTermIdentifier));
 
-// --- UI Translations ---
-const uiTranslations = {
-  en: {
-    helpModalTitle: "HOW TO USE THIS TOOL",
-    helpModalIntro: "This tool helps you explore and define complex terms like \"DEMOCRACY\" in the context of culture and climate change.", // Escaped inner quotes
-    helpModalStep1: "1. Use the arrow buttons beneath each of the three card decks to cycle through different card options.",
-    helpModalStep2: "2. Press the plus button beneath each of the three card decks to add new card options.",
-    helpModalStep3: "3. You can add new cards by A) writing a word or paragraph, B) drawing an picture, C) recording audio, or D) uploading an image.",
-    helpModalStep4: "4. Once you're satisfied with a combination, you can click the save button on the right to add your new definition to the list below.",
-    noEtymology: "No etymology information available for this term.",
-    remixDefinitionLabel: "Remix definition",
-    cardTitleTypeCategory: "1. TYPE / CATEGORY",
-    cardTitleKeyAttributes: "2. KEY ATTRIBUTES",
-    cardTitleImpactPurpose: "3. PURPOSE / IMPACT",
-    textThat: "THAT",
-    textTo: "TO",
-    // Card input placeholders
-    placeholderEnterNew: (category: string) => `Enter new ${category}...`,
-    placeholderDrawing: "Start drawing here",
-    placeholderImageUpload: "Select an image to upload",
-    placeholderTapToRecord: "Tap to record",
-    statusRecording: "Recording...",
-    statusCompressing: (progress: number) => `Compressing: ${progress}%`,
-    // Card control button aria-labels
-    labelPreviousOption: "Previous option",
-    labelNextOption: "Next option",
-    labelAddNewOption: "Add new option",
-    labelTextInput: "Text input",
-    labelDrawInput: "Draw input",
-    labelVoiceInput: "Voice input",
-    labelImageInput: "Image input",
-    labelCancel: "Cancel",
-    labelSave: "Save",
-    labelSaveCombination: "Save combination",
-    // Saved definitions list
-    definitionsAddedFor: (count: number, term: string) => `${count} DEFINITIONS ADDED FOR ${term.toUpperCase()}`,
-    sortRecent: "RECENT",
-    sortPopular: "POPULAR",
-    sortRandom: "RANDOM",
-    searchPlaceholder: "SEARCH",
-    labelLikeDefinition: "Like definition",
-    // Alerts
-    alertPleaseSelectOptions: "Please select an option for all three cards.",
-    alertMicrophoneError: "Microphone access denied or an error occurred.",
-    // Term Navigation aria-labels
-    labelPreviousTerm: "Previous term",
-    labelNextTerm: "Next term",
-    // Help and Menu Icon aria-labels in header
-    labelHelpIcon: "Help",
-    labelMenuIcon: "Menu",
-    noAudioContent: "No audio content.",
-    noImageContent: "No image content.",
-    noDrawingContent: "No drawing content.",
-  },
-  de: {
-    helpModalTitle: "SO VERWENDEN SIE DIESES TOOL",
-    helpModalIntro: "Dieses Tool hilft Ihnen, komplexe Begriffe wie 'DEMOKRATIE' im Kontext von Kultur und Klimawandel zu untersuchen und zu definieren.", // Used single quotes for inner term
-    helpModalStep1: "1. Verwenden Sie die Pfeil-Buttons unter jedem der drei Kartenstapel, um durch verschiedene Kartenoptionen zu wechseln.",
-    helpModalStep2: "2. Drücken Sie den Plus-Button unter jedem der drei Kartenstapel, um neue Kartenoptionen hinzuzufügen.",
-    helpModalStep3: "3. Sie können neue Karten hinzufügen, indem Sie A) ein Wort oder einen Absatz schreiben, B) ein Bild zeichnen, C) Audio aufnehmen oder D) ein Bild hochladen.",
-    helpModalStep4: "4. Sobald Sie mit einer Kombination zufrieden sind, können Sie auf den Speichern-Button auf der rechten Seite klicken, um Ihre neue Definition zur Liste unten hinzuzufügen.", // Used single quotes for inner term
-    noEtymology: "Für diesen Begriff sind keine Etymologie-Informationen verfügbar.",
-    remixDefinitionLabel: "Definition neu mischen",
-    cardTitleTypeCategory: "1. TYP / KATEGORIE",
-    cardTitleKeyAttributes: "2. BESONDERE ATTRIBUTE",
-    cardTitleImpactPurpose: "3. ZWECK / WIRKUNG",
-    textThat: "DER\nDIE\nDAS",
-    textTo: "UM",
-    // Card input placeholders
-    placeholderEnterNew: (category: string) => `Neue ${category} eingeben...`,
-    placeholderDrawing: "Beginnen Sie hier zu zeichnen",
-    placeholderImageUpload: "Bild zum Hochladen auswählen",
-    placeholderTapToRecord: "Zum Aufnehmen tippen",
-    statusRecording: "Aufnahme...",
-    statusCompressing: (progress: number) => `Komprimierung: ${progress}%`,
-    // Card control button aria-labels
-    labelPreviousOption: "Vorherige Option",
-    labelNextOption: "Nächste Option",
-    labelAddNewOption: "Neue Option hinzufügen",
-    labelTextInput: "Texteingabe",
-    labelDrawInput: "Zeichnen",
-    labelVoiceInput: "Spracheingabe",
-    labelImageInput: "Bildeingabe",
-    labelCancel: "Abbrechen",
-    labelSave: "Speichern",
-    labelSaveCombination: "Kombination speichern",
-    // Saved definitions list
-    definitionsAddedFor: (count: number, term: string) => `${count} DEFINITIONEN HINZUGEFÜGT FÜR ${term.toUpperCase()}`,
-    sortRecent: "NEUESTE",
-    sortPopular: "BELIEBT",
-    sortRandom: "ZUFÄLLIG",
-    searchPlaceholder: "SUCHEN",
-    labelLikeDefinition: "Definition liken",
-    // Alerts
-    alertPleaseSelectOptions: "Bitte wählen Sie für alle drei Karten eine Option aus.",
-    alertMicrophoneError: "Mikrofonzugriff verweigert oder Fehler aufgetreten.",
-    // Term Navigation aria-labels
-    labelPreviousTerm: "Vorheriger Begriff",
-    labelNextTerm: "Nächster Begriff",
-    // Help and Menu Icon aria-labels in header
-    labelHelpIcon: "Hilfe",
-    labelMenuIcon: "Menü",
-    noAudioContent: "Kein Audioinhalt.",
-    noImageContent: "Kein Bildinhalt.",
-    noDrawingContent: "Kein Zeichnungsinhalt.",
-  }
-};
+// This object has been moved to src/translations.ts
 
 // A mock translation function. Replace with a real API in production.
 const translateText = async (text: string, targetLanguage: 'en' | 'de', sourceLanguage?: 'en' | 'de'): Promise<string> => {
@@ -674,9 +523,27 @@ function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null); // Ref for the hidden file input
   const [isDrawing, setIsDrawing] = useState(false);
+  const { currentLanguage, setHeaderControls } = useOutletContext<{ 
+    currentLanguage: 'en' | 'de',
+    setHeaderControls: (controls: { save: () => Promise<void>; delete: () => Promise<void>; } | null) => void 
+  }>();
+
+  // --- State for expanding definitions ---
+  const [expandedDefinitionId, setExpandedDefinitionId] = useState<string | null>(null);
+  const definitionsListRef = useRef<HTMLDivElement>(null);
+
+  // --- Modal for viewing full content ---
+  const { isOpen: isViewerOpen, onOpen: onViewerOpen, onClose: onViewerClose } = useDisclosure();
+  const [viewerContent, setViewerContent] = useState<CardOptionValue | null>(null);
+
+  const handlePreviewClick = (option: CardOptionValue) => {
+    // Audio is handled directly and doesn't open the modal
+    if (option.type === 'audio') return;
+    setViewerContent(option);
+    onViewerOpen();
+  };
 
   // --- State for current term ---
-  const [currentLanguage, setCurrentLanguage] = useState<'en' | 'de'>('en'); // ADDED Language state
   const [currentTermIdx, setCurrentTermIdx] = useState<number>(initialTermIndex);
   const prevTermIdxRef = useRef<number>(); // To track term changes
 
@@ -741,7 +608,6 @@ function App() {
   }); // State for liked definitions, initialized from localStorage
 
   // Modal disclosure hook
-  const { isOpen: isHelpModalOpen, onOpen: onOpenHelpModal, onClose: onCloseHelpModal } = useDisclosure();
   const { isOpen: isEtymologyPopoverOpen, onOpen: onOpenEtymologyPopover, onClose: onCloseEtymologyPopover, onToggle: onToggleEtymologyPopover } = useDisclosure(); // Ensure onToggle is here
 
   // --- State for adding new card options ---
@@ -840,97 +706,39 @@ function App() {
     });
   };
 
-  const saveAllDefaultDefinitionsToFirebase = async () => {
-    console.log("Starting to save all default options to Firebase...");
-    for (const termData of allTermsData) {
-      const termId = termData.id;
-      if (!termId) {
-        console.warn("Skipping a term because it has no ID.", termData);
-        continue;
-      }
-      console.log(`Processing term: ${termId}`);
-      const termOptionsDocRef = doc(db, 'cardOptions', termId);
-  
-      try {
-        // We will overwrite existing documents to ensure defaults are always correct.
-        // User-generated options are added with merge: true, so they won't be lost unless
-        // this script is run after users have added data. For initial setup, this is safe.
-
-        const enDefs = termData.en.defaultDefinition;
-        const deDefs = termData.de.defaultDefinition;
-
-        // Add language property to each default option for filtering.
-        const typeCategoryOptions = [
-          { ...enDefs.typeCategory, language: 'en' },
-          { ...deDefs.typeCategory, language: 'de' }
-        ];
-        const keyAttributesOptions = [
-          { ...enDefs.keyAttributes, language: 'en' },
-          { ...deDefs.keyAttributes, language: 'de' }
-        ];
-        const impactPurposeOptions = [
-          { ...enDefs.impactPurpose, language: 'en' },
-          { ...deDefs.impactPurpose, language: 'de' }
-        ];
-
-        // Using setDoc will create the document or overwrite it.
-        await setDoc(termOptionsDocRef, {
-          typeCategory: typeCategoryOptions,
-          keyAttributes: keyAttributesOptions,
-          impactPurpose: impactPurposeOptions
-        });
-
-        console.log(`Successfully created/updated default options for ${termId}`);
-      } catch (error) {
-        console.error(`Error processing term ${termId}:`, error);
-      }
+  useEffect(() => {
+    if (setHeaderControls) {
+      const saveFunc = () => saveAllDefaultDefinitionsToFirebase(allTermsData);
+      const deleteFunc = () => handleDeleteAllCardOptions(
+        setAllTypeCategoryOptions,
+        setAllKeyAttributesOptions,
+        setAllImpactPurposeOptions,
+        setSelectedTypeCategory,
+        setSelectedKeyAttributes,
+        setSelectedImpactPurpose,
+        currentTermDisplayData
+      );
+      setHeaderControls({
+        save: saveFunc,
+        delete: deleteFunc,
+      });
     }
-    alert("Finished populating/updating Firestore with all default term options. Check the console for details. You can disable this button after setup.");
-  };
-
-  const handleDeleteAllCardOptions = async () => {
-    const confirmation = window.confirm(
-      "Are you sure you want to delete ALL user-added and default card options from Firebase? This action cannot be undone. You will need to click 'Save Defaults to DB' again to restore the initial cards."
-    );
-    if (confirmation) {
-      console.log("Starting to delete all card options from Firebase...");
-      try {
-        const optionsCollectionRef = collection(db, 'cardOptions');
-        const querySnapshot = await getDocs(optionsCollectionRef);
-        
-        if (querySnapshot.empty) {
-          alert("No card options found in Firestore to delete.");
-          return;
-        }
-
-        const batch = writeBatch(db);
-        querySnapshot.forEach((doc) => {
-          console.log(`Queueing deletion for doc: ${doc.id}`);
-          batch.delete(doc.ref);
-        });
-
-        await batch.commit();
-
-        // After successful deletion, clear local state and reset cards to default
-        setAllTypeCategoryOptions([]);
-        setAllKeyAttributesOptions([]);
-        setAllImpactPurposeOptions([]);
-
-        const currentTermData = allTermsData[currentTermIdx];
-        const displayData = currentTermData[currentLanguage];
-        setSelectedTypeCategory(displayData.defaultDefinition.typeCategory);
-        setSelectedKeyAttributes(displayData.defaultDefinition.keyAttributes);
-        setSelectedImpactPurpose(displayData.defaultDefinition.impactPurpose);
-
-        alert("Successfully deleted all card options from Firebase.");
-        console.log("All card options have been deleted.");
-        
-      } catch (error) {
-        console.error("Error deleting card options:", error);
-        alert("An error occurred while deleting card options. Check the console for details.");
+    return () => {
+      if (setHeaderControls) {
+        setHeaderControls(null);
       }
-    }
-  };
+    };
+  }, [
+    setHeaderControls, 
+    allTermsData, 
+    currentTermDisplayData,
+    setAllTypeCategoryOptions,
+    setAllKeyAttributesOptions,
+    setAllImpactPurposeOptions,
+    setSelectedTypeCategory,
+    setSelectedKeyAttributes,
+    setSelectedImpactPurpose
+  ]);
 
   // Moved processAudioBufferToWaveform to be a general helper
   const processAudioBufferToWaveformGlobal = async (audioBlobOrUrl: Blob | string, audioCtx: AudioContext, points: number = 100): Promise<number[]> => {
@@ -1120,25 +928,36 @@ function App() {
     }
   };
   
-  const handleLike = async (definitionId: string, currentLikes: number) => {
+  const handleLike = async (definitionId: string) => {
     if (!definitionId) return;
 
+    const definitionRef = doc(db, "definitions", definitionId);
     const alreadyLiked = likedDefinitionIds.includes(definitionId);
-    const newLikesCount = alreadyLiked ? Math.max(0, (currentLikes || 0) - 1) : (currentLikes || 0) + 1;
 
     try {
-      const definitionRef = doc(db, 'definitions', definitionId);
-      await updateDoc(definitionRef, {
-        likes: newLikesCount,
+      await runTransaction(db, async (transaction) => {
+        const definitionDoc = await transaction.get(definitionRef);
+        if (!definitionDoc.exists()) {
+          throw "Document does not exist!";
+        }
+
+        const currentLikes = definitionDoc.data().likes || 0;
+        const newLikesCount = alreadyLiked
+          ? Math.max(0, currentLikes - 1)
+          : currentLikes + 1;
+        
+        transaction.update(definitionRef, { likes: newLikesCount });
       });
 
+      // If transaction is successful, update local state for the current user's UI
       if (alreadyLiked) {
         setLikedDefinitionIds(prev => prev.filter(id => id !== definitionId));
       } else {
         setLikedDefinitionIds(prev => [...prev, definitionId]);
       }
-    } catch (error) {
-      console.error("Error updating like:", error);
+
+    } catch (e) {
+      console.error("Like transaction failed: ", e);
     }
   };
 
@@ -1931,18 +1750,14 @@ function App() {
 };
 
   // --- Component to display card content (text or drawing) ---
-  const CardContentDisplay = ({ option, displayContext = 'mainCard', language }: { option: CardOptionValue, displayContext?: 'mainCard' | 'savedList', language: 'en' | 'de' }) => {
+  const CardContentDisplay = ({ option, displayContext = 'mainCard', language, onPreviewClick, isExpanded }: { option: CardOptionValue, displayContext?: 'mainCard' | 'savedList', language: 'en' | 'de', onPreviewClick?: (option: CardOptionValue) => void, isExpanded?: boolean }) => {
     // State and refs for audio popover in savedList
     const [popoverWaveformData, setPopoverWaveformData] = useState<number[] | null>(null);
     const [isPopoverAudioPlaying, setIsPopoverAudioPlaying] = useState(false);
     const popoverAudioRef = useRef<HTMLAudioElement>(null);
     const popoverWaveformCanvasRef = useRef<HTMLCanvasElement>(null);
     const localAudioContextRef = useRef<AudioContext | null>(null);
-    // Use a unique disclosure state for each popover instance if they are independent
-    // However, if only one popover can be open at a time for a CardContentDisplay instance, one state is fine.
-    // For simplicity and assuming one media popover per card item at a time:
-    const { isOpen: isMediaPopoverOpen, onOpen: onOpenMediaPopover, onClose: onCloseMediaPopover } = useDisclosure();
-
+    
     const [isHovered, setIsHovered] = useState(false);
     const T = uiTranslations[language];
 
@@ -1956,12 +1771,11 @@ function App() {
     // Effect to load and process audio for popover in savedList
     useEffect(() => {
       let isActive = true;
-      if (option.type === 'audio' && displayContext === 'savedList' && option.content && isMediaPopoverOpen) { // Only process if popover is open
-        // Check for pre-computed waveform data first
+      if (option.type === 'audio' && displayContext === 'savedList' && option.content) { 
         if (option.waveformData && option.waveformData.length > 0) {
           if (isActive) setPopoverWaveformData(option.waveformData);
-        } else if (!popoverWaveformData || popoverWaveformData.length === 0) { // Only process if not already set and no pre-computed data or if data is empty
-          if (!localAudioContextRef.current) { // Ensure AudioContext for this instance
+        } else if (!popoverWaveformData) { 
+          if (!localAudioContextRef.current) { 
             localAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
           }
           processAudioBufferToWaveformGlobal(option.content, localAudioContextRef.current, 50).then(waveData => {
@@ -1972,12 +1786,8 @@ function App() {
           });
         }
       }
-      // Clear waveform data when popover closes to ensure fresh load next time
-      if (!isMediaPopoverOpen && isActive) {
-        setPopoverWaveformData(null);
-      }
       return () => { isActive = false };
-    }, [option, displayContext, popoverWaveformData, isMediaPopoverOpen]);
+    }, [option, displayContext, popoverWaveformData]);
 
     // Effect to load and process audio for mainCard
     useEffect(() => {
@@ -2006,11 +1816,11 @@ function App() {
         setMainCardWaveformData(null); // Clear waveform if not audio or no content
       }
       return () => { isActive = false };
-    }, [option, displayContext]);
+    }, [option, displayContext, popoverWaveformData]);
 
     // Effect to draw playback waveform in Popover (savedList)
     useEffect(() => {
-      if (popoverWaveformData && popoverWaveformCanvasRef.current && displayContext === 'savedList' && option.type === 'audio' && isMediaPopoverOpen) { // Added isMediaPopoverOpen
+      if (popoverWaveformData && popoverWaveformCanvasRef.current && displayContext === 'savedList' && option.type === 'audio') {
         const canvas = popoverWaveformCanvasRef.current;
         const context = canvas.getContext('2d');
         if (!context) return;
@@ -2030,7 +1840,7 @@ function App() {
           });
         }
       }
-    }, [popoverWaveformData, option, displayContext, windowSize, isMediaPopoverOpen]); // Added windowSize and isMediaPopoverOpen
+    }, [popoverWaveformData, option, displayContext, windowSize]);
 
     // Effect to draw playback waveform in mainCard
     useEffect(() => {
@@ -2053,7 +1863,7 @@ function App() {
           });
         }
       }
-    }, [mainCardWaveformData, option, displayContext, windowSize]); // Added windowSize
+    }, [mainCardWaveformData, option, displayContext, windowSize]);
 
     if (!option || !option.type) {
       return <Text>Error: Invalid option</Text>; // Fallback for invalid data
@@ -2063,90 +1873,68 @@ function App() {
     if (displayContext === 'savedList') {
       if (option.type === 'text') {
         return (
-          <Text
-            textAlign="left"
-            fontSize="16px"
-            fontWeight="medium"
-            color="black"
-            title={option.content}
-            w="100%"
-          >
-            {option.content}
-          </Text>
+          <Box w="100%" h="100%" display="flex" alignItems="center" justifyContent="flex-start" overflow="hidden">
+            <Text
+              noOfLines={isExpanded ? undefined : 4}
+              textAlign="left"
+              fontSize="16px"
+              fontWeight="medium"
+              color="black"
+              title={option.content}
+              w="100%"
+            >
+              {option.content}
+            </Text>
+          </Box>
         );
       } else if (option.type === 'audio') {
         return (
-          <Popover isOpen={isMediaPopoverOpen} onOpen={onOpenMediaPopover} onClose={onCloseMediaPopover} placement="top" gutter={10} >
-            <PopoverTrigger>
-              <Box as="span" cursor="pointer" onClick={onOpenMediaPopover} display="inline-flex" alignItems="center" justifyContent="center">
-                <Mic size={23} strokeWidth={2.5}/>
-              </Box>
-            </PopoverTrigger>
-            <PopoverContent p={3} w="250px" h="250px" bg="white" alignItems="center" justifyContent="center" borderColor="white" borderWidth="0px" boxShadow="lg" borderRadius="7px">
-              <PopoverArrow />
-             
-              
-              <PopoverBody>
-                {option.content ? (
-                  <>
-                    <canvas 
-                      ref={popoverWaveformCanvasRef}
-                      style={{ width: "220px", height: '40px', cursor: 'pointer', borderRadius: '0px', backgroundColor: 'white' }}
-                      onClick={() => {
-                        if (popoverAudioRef.current) {
-                          if (isPopoverAudioPlaying) popoverAudioRef.current.pause();
-                          else popoverAudioRef.current.play();
-                        }
-                      }}
-                    />
-                    <audio 
-                      ref={popoverAudioRef} 
-                      src={option.content} 
-                      onPlay={() => setIsPopoverAudioPlaying(true)} 
-                      onPause={() => setIsPopoverAudioPlaying(false)} 
-                      onEnded={() => setIsPopoverAudioPlaying(false)} 
-                      style={{ display: 'none' }} 
-                    />
-                   
-                  </>
-                ) : <Text fontSize="sm">{T.noAudioContent}</Text>}
-              </PopoverBody>
-            </PopoverContent>
-          </Popover>
+          <Box 
+            w="100%" 
+            h="100%" 
+            display="flex" 
+            alignItems="center" 
+            justifyContent="center" 
+            cursor="pointer"
+            onClick={(e) => {
+              if (isExpanded) {
+                e.stopPropagation();
+                if (popoverAudioRef.current) {
+                  if (isPopoverAudioPlaying) {
+                    popoverAudioRef.current.pause();
+                  } else {
+                    popoverAudioRef.current.play();
+                  }
+                }
+              }
+              // If not expanded, the click propagates and expands the container
+            }}
+          >
+            <canvas 
+              ref={popoverWaveformCanvasRef}
+              style={{ width: "100%", height: '40px', borderRadius: '0px', backgroundColor: 'transparent' }}
+            />
+            <audio 
+              ref={popoverAudioRef} 
+              src={option.content} 
+              onPlay={() => setIsPopoverAudioPlaying(true)} 
+              onPause={() => setIsPopoverAudioPlaying(false)} 
+              onEnded={() => setIsPopoverAudioPlaying(false)} 
+              style={{ display: 'none' }} 
+            />
+          </Box>
         );
-      } else if (option.type === 'image') {
+      } else if (option.type === 'image' || option.type === 'drawing') {
         return (
-          <Popover isOpen={isMediaPopoverOpen} onOpen={onOpenMediaPopover} onClose={onCloseMediaPopover} placement="top" gutter={10} >
-            <PopoverTrigger>
-              <Box as="span" cursor="pointer" onClick={onOpenMediaPopover} display="inline-flex" alignItems="center" justifyContent="center">
-                <Image size={23} strokeWidth={2.5}/>
-              </Box>
-            </PopoverTrigger>
-            <PopoverContent w="250px" h="250px" p={1} bg="white" borderColor="white" alignItems="center" justifyContent="center" borderWidth="0px" boxShadow="lg" borderRadius="10px">
-              <PopoverArrow />
-             
-              <PopoverBody>
-                {option.content ? <ChakraImage src={option.content} alt="User image" w="220px" h="220px" objectFit="contain" borderRadius="7px" /> : <Text fontSize="sm">{T.noImageContent}</Text>}
-              </PopoverBody>
-            </PopoverContent>
-          </Popover>
-        );
-      } else if (option.type === 'drawing') {
-        return (
-          <Popover isOpen={isMediaPopoverOpen} onOpen={onOpenMediaPopover} onClose={onCloseMediaPopover} placement="top" gutter={10} >
-            <PopoverTrigger>
-              <Box as="span" cursor="pointer" onClick={onOpenMediaPopover} display="inline-flex" alignItems="center" justifyContent="center">
-                <Edit3 size={23} strokeWidth={2.5}/>
-              </Box>
-            </PopoverTrigger>
-            <PopoverContent w="250px" h="250px" alignItems="center" justifyContent="center" p={1} bg="white" borderColor="white" borderWidth="0px" boxShadow="lg" borderRadius="10px">
-              <PopoverArrow />
-              
-              <PopoverBody>
-                {option.content ? <ChakraImage src={option.content} alt="User drawing" w="220px" h="220px" objectFit="contain" borderRadius="sm" /> : <Text fontSize="sm">{T.noDrawingContent}</Text>}
-              </PopoverBody>
-            </PopoverContent>
-          </Popover>
+          <Box w="100%" h="100%">
+            <ChakraImage 
+              src={option.content} 
+              alt="Content preview" 
+              w="100%" 
+              h="100%" 
+              objectFit="cover" 
+            />
+          </Box>
         );
       }
       return <Text>?</Text>; // Fallback for unknown type in savedList
@@ -2237,7 +2025,7 @@ function App() {
 
   // --- Render --- 
   return (
-    <Box className="gradient-background" minHeight="100vh" w="100vw" pt={0} px={0} pb={8} color="gray.800">
+    <>
       {isEtymologyPopoverOpen && (
         <Box
           position="fixed"
@@ -2250,63 +2038,7 @@ function App() {
           onClick={onCloseEtymologyPopover} // Close popover when overlay is clicked
         />
       )}
-      <VStack spacing={1} align="stretch" w="100%">
-        {/* Header Section */}
-        <Flex w="100%" alignItems="center" bg="whiteAlpha.300" p={4} pl={10} borderRadius="0" >
-        <Heading as="h1" size="sm" color="black" fontWeight="medium"> 
-            CULTURE & CLIMATE CHANGE
-          </Heading>
-          <Spacer />
-          <Button size="sm" onClick={saveAllDefaultDefinitionsToFirebase} mr={4}>Save Defaults to DB</Button>
-          <Button size="sm" onClick={handleDeleteAllCardOptions} mr={4} variant="outline" colorScheme="red">Delete All Options</Button>
-      
-          
-          <HStack spacing={3} pr={7}>
-            <HStack
-              spacing={0}
-              bg="blackAlpha.200"
-              borderRadius="md"
-              p="2px"
-            >
-              <Button
-                size="sm"
-                variant="ghost"
-                bg={currentLanguage === 'en' ? 'white' : 'transparent'}
-                color={'black'}
-                onClick={() => {
-                    setIsAnimating(false);
-                    setCurrentLanguage('en');
-                }}
-                _hover={{ bg: currentLanguage === 'en' ? 'white' : 'whiteAlpha.500' }}
-                w="45px"
-                fontWeight="bold"
-                borderRadius="md"
-              >
-                EN
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                bg={currentLanguage === 'de' ? 'white' : 'transparent'}
-                color={'black'}
-                onClick={() => {
-                    setIsAnimating(false);
-                    setCurrentLanguage('de');
-                }}
-                _hover={{ bg: currentLanguage === 'de' ? 'white' : 'whiteAlpha.500' }}
-                w="45px"
-                fontWeight="bold"
-                borderRadius="md"
-              >
-                DE
-              </Button>
-            </HStack>
-            <IconButton aria-label={T.labelHelpIcon} icon={<HelpCircle size={23} strokeWidth={2.5} />} variant="ghost" color="black" _hover={{ color: "white" }} onClick={onOpenHelpModal} />
-            <IconButton aria-label={T.labelMenuIcon} icon={<MenuIconFeather size={23} strokeWidth={2.5} />} variant="ghost" color="black" _hover={{ color: "white" }} />
-          </HStack>
-        </Flex>
-
-        {/* Term Display Section */}
+        {/* Header Section has been moved to Layout.tsx */}
         <VStack spacing={5} align="center" mt={10}>
           <Text fontSize="17px" color="white" letterSpacing="4px">{currentPhonetic || ''}</Text> {/* Display phonetic or empty string */}
           <HStack alignItems="center">
@@ -2407,7 +2139,7 @@ function App() {
                 <CardStack
                   items={typeCategoryOptions}
                   activeItem={selectedTypeCategory}
-                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} />}
+                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} onPreviewClick={handlePreviewClick} isExpanded={expandedDefinitionId === option.id} />}
                   isAnimating={isAnimating}
                 />
               )}
@@ -2503,7 +2235,7 @@ function App() {
                 <CardStack
                   items={keyAttributesOptions}
                   activeItem={selectedKeyAttributes}
-                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} />}
+                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} onPreviewClick={handlePreviewClick} isExpanded={expandedDefinitionId === option.id} />}
                   isAnimating={isAnimating}
                 />
               )}
@@ -2599,7 +2331,7 @@ function App() {
                 <CardStack
                   items={impactPurposeOptions}
                   activeItem={selectedImpactPurpose}
-                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} />}
+                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} onPreviewClick={handlePreviewClick} isExpanded={expandedDefinitionId === option.id} />}
                   isAnimating={isAnimating}
                 />
               )}
@@ -2689,14 +2421,14 @@ function App() {
 
         {/* Saved Definitions List */}
         {savedDefinitions.length > 0 && (
-          <VStack spacing={6} mt={16} w="100%" align="stretch" bg="transparent" p={6} borderRadius="0" pt={138} pl={110}>
-            <Flex  py={5} px={5} justify="space-between" align="center" w="100%" mb={3}>
-              <Text borderRadius="10px" bg="whiteAlpha.300" fontSize="12px" color="black" fontWeight="medium" px="12px" py="10px" borderWidth="px" borderColor="transparent">
+          <VStack spacing={6} mt={16} w="100%" align="stretch" bg="transparent" p={6} borderRadius="0" pt={138} pl={110} >
+            <Flex  py={5} px={5} justify="space-between" align="center" w="100%" mb={3} >
+              <Text borderRadius="10px" bg="whiteAlpha.300" fontSize="12px" color="black" fontWeight="medium" px="12px" py="10px" borderWidth="px" borderColor="transparent" >
                 {T.definitionsAddedFor(savedDefinitions.filter(def => def.termId === currentTermEntry.id).length, currentTerm)}
               </Text>
               <HStack spacing={8} pr="85px" >
         
-                <Menu gutter={0}>
+                <Menu gutter={0} >
                   <MenuButton 
                     as={Button} 
                     rightIcon={<ChevronDown size={20} strokeWidth={2.5} />} 
@@ -2803,20 +2535,14 @@ function App() {
               })
               .sort((a: Definition, b: Definition) => {
                 if (sortOrder === 'recent') {
-                  // Firestore already sorts by createdAt desc for 'recent'
-                  // If createdAt is not a Firestore Timestamp, simple comparison might be needed
-                  // For now, assuming Firestore handles it or they are comparable directly
                   if (a.createdAt && b.createdAt) {
-                    // Assuming serverTimestamp() results in objects that can be compared (e.g., via .toMillis() or .toDate())
-                    // This might need adjustment based on actual createdAt structure after Firestore retrieval
-                    // For descending order (newest first):
                     if (typeof a.createdAt.toMillis === 'function' && typeof b.createdAt.toMillis === 'function') {
                         return b.createdAt.toMillis() - a.createdAt.toMillis();
-                    } else if (a.createdAt > b.createdAt) return -1; // Fallback for direct comparison if not Timestamps
+                    } else if (a.createdAt > b.createdAt) return -1;
                     else if (a.createdAt < b.createdAt) return 1;
                     return 0;
                   }
-                  return 0; // Should not happen if createdAt is always set
+                  return 0;
                 } else if (sortOrder === 'popular') {
                   return (b.likes || 0) - (a.likes || 0); // Sort by likes, descending
                 } else if (sortOrder === 'random') {
@@ -2825,206 +2551,153 @@ function App() {
                 return 0;
               })
               .map((def: Definition, index: number) => {
-                // Determine if the definition consists only of non-text (icon) types
-                const isIconOnlyDefinition =
-                  def.typeCategory.type !== 'text' &&
-                  def.keyAttributes.type !== 'text' &&
-                  def.impactPurpose.type !== 'text';
-
-                // Conditionally set flex properties for each part of the definition
-                let typeFlex, attributesFlex, purposeFlex;
-
-                if (isIconOnlyDefinition) {
-                  // If all parts are icons, make them share the available space equally
-                  typeFlex = { base: 1 };
-                  attributesFlex = { base: 1 };
-                  purposeFlex = { base: 1 };
-                } else {
-                  // Otherwise, use existing logic: flexible for text, fixed for single icons
-                  typeFlex =
-                    def.typeCategory.type === 'text'
-                      ? { base: '1 1 auto', md: '1 1 auto' }
-                      : { base: '0 0 80px', md: '0 0 80px' };
-                  attributesFlex =
-                    def.keyAttributes.type === 'text'
-                      ? { base: '3 1 auto', md: '3 1 auto' }
-                      : { base: '0 0 80px', md: '0 0 80px' };
-                  purposeFlex =
-                    def.impactPurpose.type === 'text'
-                      ? { base: '2 1 auto', md: '2 1 auto' }
-                      : { base: '0 0 74px', md: '0 0 74px' };
-                }
-                
+                const isExpanded = expandedDefinitionId === def.id;
+                const isLiked = likedDefinitionIds.includes(def.id!);
                 return (
-              <VStack
-                key={def.id || index}
-                align="stretch"
-                w="100%"
-                
-              >
-                {/* Main Flex container for one definition row, arranging boxes and like button */}
-                <Flex
-                
-                  direction="row"
-                  alignItems="stretch" // Stretch items to fill height if needed
-                  justifyContent="space-between"
-                  py={1} // User adjusted py={0}
-                  px={5} // User adjusted px={5}
-                  
-                  w="100%"
-                  bg="transparent"
-                  minH="120px" // Ensure a minimum height for the row
-                >
-                  {/* HStack for the series of bordered definition part boxes */}
-                  <HStack spacing={0} flexGrow={1} mr={3} alignItems="stretch" pr="25px" >
-                    {/* Box 1: typeCategory */}
-                    <Box 
-                      borderTopLeftRadius="10px"
-                      borderBottomLeftRadius="10px"
-                      borderRightWidth="0px" 
-                      borderTopWidth="0px" 
-                      borderBottomWidth="0px" 
-                      borderLeftWidth="0px" 
-                      borderColor="transparent" 
-                      bg="white"
-                      mr="4px"
-                      p={5} 
-                      display="flex" 
-                      alignItems="center" 
-                      justifyContent={def.typeCategory.type === 'text' ? "flex-start" : "center"}
-                      flex={typeFlex}
-                      minH="100%"
+                  <VStack
+                    key={def.id || index}
+                    align="stretch"
+                    w="100%"
+                    cursor="pointer"
+                    transition="all 0.2s ease-in-out"
+                  >
+                    <Flex
+                      onClick={() => setExpandedDefinitionId(isExpanded ? null : def.id || null)}
+                      direction="row"
+                      alignItems="stretch"
+                      justifyContent="space-between"
+                      py={1}
+                      px={5}
+                      w="100%"
+                      bg="transparent"
+                      h={isExpanded ? '350px' : '140px'}
+                      transition="height 0.2s ease-in-out"
                     >
-                      <CardContentDisplay option={def.typeCategory} displayContext="savedList" language={currentLanguage} />
-                    </Box>
+                      <Grid
+                        templateColumns="1fr 80px 1fr 80px 1fr"
+                        gap="4px"
+                        flexGrow={1}
+                        mr={10}
+                        pr={1}
+                        alignItems="stretch"
+                      >
+                        <Box
+                          borderTopLeftRadius="10px"
+                          borderBottomLeftRadius="10px"
+                          bg="white"
+                          p={def.typeCategory.type === 'text' ? 5 : 0}
+                          display="flex"
+                          alignItems="center"
+                          justifyContent={def.typeCategory.type === 'text' ? "flex-start" : "center"}
+                          minH="100%"
+                          overflow="hidden"
+                        >
+                          <CardContentDisplay option={def.typeCategory} displayContext="savedList" language={currentLanguage} isExpanded={isExpanded} />
+                        </Box>
 
-                    {/* Box 2: "THAT" */}
-                    <Box 
-                      borderTopWidth="0px" 
-                      borderBottomWidth="0px" 
-                      borderRightWidth="0px" 
-                      borderColor="white" 
-                      p={5}  
-                      bg="white"
-                      mr="4px"
-                      display="flex" 
-                      alignItems="center" 
-                      justifyContent="center" 
-                      flex={{ base: "0 0 80px", md: "0 0 80px" }} 
-                      minH="100%"
-                    >
-                      <Text fontSize="16px" fontWeight="medium" color="black">{T.textThat.toUpperCase()}</Text>
-                    </Box>
+                        <Box
+                          bg="white"
+                          p={5}
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                          minH="100%"
+                        >
+                          <Text fontSize="16px" fontWeight="medium" color="black">{T.textThat.toUpperCase()}</Text>
+                        </Box>
 
-                    {/* Box 3: keyAttributes */}
-                    <Box 
-                      borderTopWidth="0px" 
-                      borderBottomWidth="0px" 
-                      borderRightWidth="0px" 
-                      borderColor="white"  
-                      p={5}  
-                      bg="white"
-                      mr="4px"
-                      display="flex" 
-                      alignItems="center" 
-                      justifyContent={def.keyAttributes.type === 'text' ? "flex-start" : "center"} 
-                      flex={attributesFlex}
-                      minH="100%"
-                    >
-                      <CardContentDisplay option={def.keyAttributes} displayContext="savedList" language={currentLanguage} />
-                    </Box>
+                        <Box
+                          bg="white"
+                          p={def.keyAttributes.type === 'text' ? 5 : 0}
+                          display="flex"
+                          alignItems="center"
+                          justifyContent={def.keyAttributes.type === 'text' ? "flex-start" : "center"}
+                          minH="100%"
+                          overflow="hidden"
+                        >
+                          <CardContentDisplay option={def.keyAttributes} displayContext="savedList" language={currentLanguage} isExpanded={isExpanded} />
+                        </Box>
 
-                    {/* Box 4: "TO" */}
-                    <Box 
-                      borderTopWidth="0px" 
-                      borderBottomWidth="0px" 
-                      borderRightWidth="0px" 
-                      borderColor="white" 
-                      p={5}  
-                      bg="white"
-                      mr="4px"
-                      display="flex" 
-                      alignItems="center" 
-                      justifyContent="center" 
-                      flex={{ base: "0 0 80px", md: "0 0 80px" }} 
-                      minH="100%"
-                    >
-                      <Text fontSize="16px" fontWeight="medium" color="black">{T.textTo.toUpperCase()}</Text>
-                    </Box>
+                        <Box
+                          bg="white"
+                          p={5}
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                          minH="100%"
+                        >
+                          <Text fontSize="16px" fontWeight="medium" color="black">{T.textTo.toUpperCase()}</Text>
+                        </Box>
 
-                    {/* Box 5: impactPurpose */}
-                    <Box 
-                      borderTopRightRadius="10px"
-                      borderBottomRightRadius="10px"
-                      borderTopWidth="0px" 
-                      borderBottomWidth="0px" 
-                      borderRightWidth="0px" 
-                      borderColor="white"
-                      bg="white"
-                      mr="4px" 
-                      p={5}  
-                      display="flex" 
-                      alignItems="center" 
-                      justifyContent={def.impactPurpose.type === 'text' ? "flex-start" : "center"}
-                      flex={purposeFlex}
-                      minH="100%"
-                    >
-                      <CardContentDisplay option={def.impactPurpose} displayContext="savedList" language={currentLanguage} />
-                    </Box>
-                  </HStack>
-                  
-                  {/* Like button: Remains to the right */}
-                  <IconButton 
-                    aria-label={T.labelLikeDefinition} 
-                    icon={<ThumbsUp size={23} strokeWidth={2.5} />} 
-                    bg="whiteAlpha.300"
-                    color="black"
-                    borderRadius="10px"
-                    onClick={() => handleLike(def.id!, def.likes || 0)}
-                    _hover={{ bg: "white", color: "black" }} 
-                    _active={{ bg: "white", color: "black" }} 
-                    size="md" 
-                    alignSelf="center"
-                  />
-                </Flex>
-              </VStack>
-            )})}
+                        <Box
+                      
+                          borderTopRightRadius="10px"
+                          borderBottomRightRadius="10px"
+                          bg="white"
+                          p={def.impactPurpose.type === 'text' ? 5 : 0}
+                          display="flex"
+                          alignItems="center"
+                          justifyContent={def.impactPurpose.type === 'text' ? "flex-start" : "center"}
+                          minH="100%"
+                          overflow="hidden"
+                        >
+                          <CardContentDisplay option={def.impactPurpose} displayContext="savedList" language={currentLanguage} isExpanded={isExpanded} />
+                        </Box>
+                      </Grid>
+
+                      <VStack spacing={1} align="center" alignSelf="center">
+                        <IconButton
+                          aria-label={T.labelLikeDefinition }
+                          icon={<ThumbsUp size={23} strokeWidth={2.5} />}
+                          bg={isLiked ? "white" : "whiteAlpha.300"}
+                          color="black"
+                          borderRadius="10px"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLike(def.id!);
+                          }}
+                          _hover={{ bg: "white", color: "black" }}
+                          _active={{ bg: "white", color: "black" }}
+                          size="md"
+                        />
+                        <Text fontSize="12px" color="black" fontWeight="medium">
+                          {def.likes || 0}
+                        </Text>
+                      </VStack>
+                    </Flex>
+                  </VStack>
+                )
+              })}
           </VStack>
         )}
-      </VStack>
 
-      {/* Help Modal */}
-      <Modal isOpen={isHelpModalOpen} onClose={onCloseHelpModal} isCentered>
-        <ModalOverlay />
-        <ModalContent bg="white" color="black" borderRadius="xl" boxShadow="xl" mx={4}>
-          <ModalHeader pt={8} pl={8} pr={8} fontSize="16px" fontWeight="bold" borderBottomWidth="0px" borderColor="white">
-            {T.helpModalTitle} {/* TRANSLATED */}
-          </ModalHeader>
-          <ModalBody pb={6} pl={8} pr={8}>
-            <VStack spacing={4} align="stretch">
-              <Text fontSize="16" lineHeight="tall">
-                {T.helpModalIntro} {/* TRANSLATED */}
-              </Text>
-              <Text fontSize="16" lineHeight="tall">
-                {T.helpModalStep1} {/* TRANSLATED */}
-              </Text>
-              <Text fontSize="16" lineHeight="tall">
-                {T.helpModalStep2} {/* TRANSLATED */}
-              </Text>
-              <Text fontSize="16" lineHeight="tall">
-                {T.helpModalStep3} {/* TRANSLATED */}
-              </Text>
-              <Text fontSize="16" lineHeight="tall">
-                {T.helpModalStep4} {/* TRANSLATED */}
-              </Text>
-             
-            </VStack>
+      <Modal isOpen={isViewerOpen} onClose={onViewerClose} isCentered size="xl">
+        <ModalOverlay bg="blackAlpha.700"/>
+        <ModalContent bg="transparent" boxShadow="none">
+          <ModalCloseButton color="white" bg="blackAlpha.500" _hover={{ bg: "blackAlpha.800" }} borderRadius="full"/>
+          <ModalBody p={0} display="flex" justifyContent="center" alignItems="center">
+            {viewerContent && (
+              <>
+                {viewerContent.type === 'text' && (
+                  <Box bg="white" p={6} borderRadius="md" maxW="90vw" maxH="80vh" overflowY="auto">
+                    <Text fontSize="lg" whiteSpace="pre-wrap">{viewerContent.content}</Text>
+                  </Box>
+                )}
+                {(viewerContent.type === 'image' || viewerContent.type === 'drawing') && (
+                  <ChakraImage 
+                    src={viewerContent.content} 
+                    alt="Full content view" 
+                    maxW="90vw" 
+                    maxH="90vh" 
+                    objectFit="contain"
+                  />
+                )}
+              </>
+            )}
           </ModalBody>
-          
-        
         </ModalContent>
       </Modal>
-    </Box>
+    </>
   );
 }
 
