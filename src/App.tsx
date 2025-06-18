@@ -1,19 +1,17 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Box, Heading, Flex, Text, Button, VStack, HStack, Spacer, IconButton, InputGroup, InputLeftElement, Input, Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure, Textarea, Image as ChakraImage, Popover, PopoverTrigger, PopoverContent, PopoverArrow, PopoverCloseButton, PopoverHeader, PopoverBody, Menu, MenuButton, MenuList, MenuItem, Circle, Progress, Grid } from '@chakra-ui/react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Box, Heading, Flex, Text, Button, VStack, HStack, IconButton, InputGroup, InputLeftElement, Input, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, useDisclosure, Textarea, Image as ChakraImage, Popover, PopoverTrigger, PopoverContent, PopoverBody, Menu, MenuButton, MenuList, MenuItem, Circle, Progress, Grid } from '@chakra-ui/react';
 // Import Feather Icons
-import { HelpCircle, Menu as MenuIconFeather, ChevronLeft, ChevronRight, Shuffle, Save, ChevronUp, Plus, ChevronDown, Search, MessageSquare, Link, ThumbsUp, Copy, Type, Edit3, Mic, Image, X, Check, Trash2, StopCircle, Upload, AlignCenter, RefreshCw } from 'react-feather';
+import { Menu as MenuIconFeather, ChevronLeft, ChevronRight, Shuffle, Save, ChevronUp, Plus, ChevronDown, Search, ThumbsUp, Type, Edit3, Mic, Image, X, Check, StopCircle, Upload } from 'react-feather';
 import { db } from './firebase/firebaseConfig'; // Import db
-import { collection, doc, getDoc, getDocs, addDoc, serverTimestamp, onSnapshot, orderBy, query, updateDoc, setDoc, Transaction, runTransaction, writeBatch } from 'firebase/firestore'; // Import Firestore functions (ensure updateDoc is here)
+import { collection, doc, getDoc, addDoc, serverTimestamp, onSnapshot, orderBy, query, Transaction, runTransaction } from 'firebase/firestore'; // Import Firestore functions (ensure updateDoc is here)
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // Firebase Storage
-import { motion } from 'framer-motion';
+
 import imageCompression from 'browser-image-compression';
 import { useOutletContext } from 'react-router-dom';
-import type { CardOptionValue, Definition, TermData, LanguageSpecificTermData } from './types';
+import type { CardOptionValue, Definition, TermData } from './types';
 import { CardStack } from './components/CardStack';
 import { uiTranslations } from './translations';
 import { saveAllDefaultDefinitionsToFirebase, handleDeleteAllCardOptions } from './firebase/db';
-
-const defaultTextOption: CardOptionValue = { type: 'text', content: 'Loading...', id: 'loading-default' };
 
 const allTermsData: TermData[] = [
   {
@@ -530,7 +528,7 @@ function App() {
 
   // --- State for expanding definitions ---
   const [expandedDefinitionId, setExpandedDefinitionId] = useState<string | null>(null);
-  const definitionsListRef = useRef<HTMLDivElement>(null);
+  
 
   // --- Modal for viewing full content ---
   const { isOpen: isViewerOpen, onOpen: onViewerOpen, onClose: onViewerClose } = useDisclosure();
@@ -608,7 +606,7 @@ function App() {
   }); // State for liked definitions, initialized from localStorage
 
   // Modal disclosure hook
-  const { isOpen: isEtymologyPopoverOpen, onOpen: onOpenEtymologyPopover, onClose: onCloseEtymologyPopover, onToggle: onToggleEtymologyPopover } = useDisclosure(); // Ensure onToggle is here
+  const { isOpen: isEtymologyPopoverOpen, onClose: onCloseEtymologyPopover, onToggle: onToggleEtymologyPopover } = useDisclosure(); // Ensure onToggle is here
 
   // --- State for adding new card options ---
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
@@ -2139,7 +2137,7 @@ function App() {
                 <CardStack
                   items={typeCategoryOptions}
                   activeItem={selectedTypeCategory}
-                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} onPreviewClick={handlePreviewClick} isExpanded={expandedDefinitionId === option.id} />}
+                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} isExpanded={expandedDefinitionId === option.id} />}
                   isAnimating={isAnimating}
                 />
               )}
@@ -2235,7 +2233,7 @@ function App() {
                 <CardStack
                   items={keyAttributesOptions}
                   activeItem={selectedKeyAttributes}
-                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} onPreviewClick={handlePreviewClick} isExpanded={expandedDefinitionId === option.id} />}
+                  renderCard={(option: CardOptionValue) => <CardContentDisplay option={option} language={currentLanguage} isExpanded={expandedDefinitionId === option.id} />}
                   isAnimating={isAnimating}
                 />
               )}
