@@ -38,12 +38,12 @@ const Header: React.FC<HeaderProps> = ({
 
       <HStack spacing={3} pr={7} alignItems="center">
         
-      {headerControls && (
+      {/* {headerControls && (
           <>
             <Button onClick={headerControls.save} size="md" bg="whiteAlpha.300" _hover={{ bg: 'white' }} borderRadius="10px">Save Defaults</Button>
             <Button onClick={headerControls.delete} size="md" bg="whiteAlpha.300" _hover={{ bg: 'white' }} borderRadius="10px">Delete All</Button>
           </>
-        )}
+        )} */}
         <Link
           as={NavLink}
           to="/connect"
