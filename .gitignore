@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel
+
+# Firebase service account keys
+*adminsdk*.json
+serviceAccountKey.json

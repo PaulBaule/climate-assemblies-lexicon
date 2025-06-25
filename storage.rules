@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check for admin custom claim
+    function isAdmin() {
+      return request.auth.token.admin == true;
+    }
+
+    // Allow public read access for all files, since download URLs are public.
+    allow read: if true;
+
+    // Audio files can be read by anyone and created by any authenticated user.
+    // Only admins can delete them.
+    match /audio/{fileName} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.contentType.matches('audio/.*');
+      allow delete: if isAdmin();
+    }
+
+    // Screenshots can be created by any authenticated user.
+    // Only the admin can read, write (overwrite), or delete them.
+    match /screenshots/{fileName} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null && request.resource.contentType.matches('image/png');
+      allow delete: if isAdmin();
+    }
+  }
+} 

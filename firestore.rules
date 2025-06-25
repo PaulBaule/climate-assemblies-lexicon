@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check for admin custom claim
+    function isAdmin() {
+      return request.auth.token.admin == true;
+    }
+
+    // cardOptions are the building blocks for definitions.
+    // They are loaded into the app for users to combine them.
+    // Allow anyone to read them, but only authenticated users to write them.
+    match /cardOptions/{termId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if isAdmin() || 
+                    (request.auth != null &&
+                     request.resource.data.typeCategory.size() >= resource.data.typeCategory.size() &&
+                     request.resource.data.keyAttributes.size() >= resource.data.keyAttributes.size() &&
+                     request.resource.data.impactPurpose.size() >= resource.data.impactPurpose.size());
+      allow delete: if isAdmin();
+    }
+
+    // Definitions are user-created combinations of cardOptions.
+    // Anyone should be able to read them.
+    // Any authenticated user should be able to create one.
+    // Authenticated users can update the 'likes' count.
+    // Deletion is disallowed for now to preserve content.
+    match /definitions/{definitionId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']);
+      allow delete: if isAdmin();
+    }
+  }
+} 
